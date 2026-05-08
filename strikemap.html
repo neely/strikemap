@@ -195,21 +195,24 @@
     <div class="compass-wrap">
       <div class="sec-label">BEARING</div>
       <button class="compass-ring" id="compass-tap-btn" onclick="onCompassTap()" style="background:none;border:none;cursor:pointer;padding:0;position:relative;width:150px;height:150px;">
-        <svg viewBox="0 0 150 150">
-          <circle cx="75" cy="75" r="70" fill="none" stroke="#1e2d38" stroke-width="1"/>
-          <g stroke="#2a3d4a" stroke-width="1">
-            <line x1="75" y1="7" x2="75" y2="17"/>
-            <line x1="75" y1="133" x2="75" y2="143"/>
-            <line x1="7" y1="75" x2="17" y2="75"/>
-            <line x1="133" y1="75" x2="143" y2="75"/>
+        <svg viewBox="0 0 150 150" style="width:100%;height:100%;">
+          <!-- Static outer ring -->
+          <circle cx="75" cy="75" r="70" fill="none" stroke="#1e2d38" stroke-width="1.5"/>
+          <!-- Rotating bezel group — rotated by JS -->
+          <g id="compass-bezel">
+            <!-- Tick marks -->
+            <line x1="75" y1="7"  x2="75" y2="16" stroke="#2a3d4a" stroke-width="1"/>
+            <line x1="75" y1="134" x2="75" y2="143" stroke="#2a3d4a" stroke-width="1"/>
+            <line x1="7"  y1="75" x2="16" y2="75" stroke="#2a3d4a" stroke-width="1"/>
+            <line x1="134" y1="75" x2="143" y2="75" stroke="#2a3d4a" stroke-width="1"/>
+            <!-- Cardinals — positioned at fixed angles on the bezel -->
+            <text x="75"  y="24"  text-anchor="middle" fill="#e03030" font-family="'Share Tech Mono'" font-size="10" font-weight="bold">N</text>
+            <text x="75"  y="143" text-anchor="middle" fill="#5a7a8a" font-family="'Share Tech Mono'" font-size="9">S</text>
+            <text x="14"  y="79"  text-anchor="middle" fill="#5a7a8a" font-family="'Share Tech Mono'" font-size="9">W</text>
+            <text x="136" y="79"  text-anchor="middle" fill="#5a7a8a" font-family="'Share Tech Mono'" font-size="9">E</text>
           </g>
-          <text x="75" y="26"  text-anchor="middle" fill="#5a7a8a" font-family="'Share Tech Mono'" font-size="9">N</text>
-          <text x="75" y="137" text-anchor="middle" fill="#5a7a8a" font-family="'Share Tech Mono'" font-size="9">S</text>
-          <text x="14" y="79"  text-anchor="middle" fill="#5a7a8a" font-family="'Share Tech Mono'" font-size="9">W</text>
-          <text x="136" y="79" text-anchor="middle" fill="#5a7a8a" font-family="'Share Tech Mono'" font-size="9">E</text>
-          <line id="compass-needle" x1="75" y1="75" x2="105" y2="30" stroke="#f5c842" stroke-width="2.5" stroke-linecap="round"/>
-          <circle cx="75" cy="75" r="4" fill="#f5c842"/>
-          <circle cx="75" cy="75" r="2.5" fill="#080c10"/>
+          <!-- Fixed lubber line at top = phone's forward direction -->
+          <line x1="75" y1="5" x2="75" y2="20" stroke="#f5c842" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
         </svg>
         <div class="compass-center">
           <div class="compass-deg" id="compass-deg-el">---</div>
@@ -411,38 +414,37 @@ function pushHeading(h){
 function updateCompassDisplay(){
   const degEl  = document.getElementById('compass-deg-el');
   const cardEl = document.getElementById('compass-card-el');
-  const needle = document.getElementById('compass-needle');
+  const bezel  = document.getElementById('compass-bezel');
   const hint   = document.getElementById('compass-hint');
   const ring   = document.getElementById('compass-tap-btn');
 
+  const deg = lockedHeading !== null ? lockedHeading : liveHeading;
+
+  // Rotate bezel: bezel rotates OPPOSITE to heading so N stays pointing north
+  if(bezel && deg !== null) bezel.setAttribute('transform', `rotate(${-deg},75,75)`);
+
   if(lockedHeading !== null){
-    // Locked state — show green confirmation
     const d = Math.round(lockedHeading);
     degEl.textContent  = String(d).padStart(3,'0')+'°';
     degEl.style.color  = '#30a860';
-    cardEl.textContent = '✓ LOCKED';
+    cardEl.textContent = '✓ '+toCardinal(d);
     cardEl.style.color = '#30a860';
-    if(needle) needle.setAttribute('transform',`rotate(${d},75,75)`);
     if(hint) hint.textContent = 'tap compass to unlock';
     if(ring) ring.style.boxShadow = '0 0 16px rgba(48,168,96,.4)';
   } else if(bearingArmed){
-    // Live — waiting for user to tap
     const d = liveHeading !== null ? Math.round(liveHeading) : null;
     degEl.textContent  = d !== null ? String(d).padStart(3,'0')+'°' : '---';
     degEl.style.color  = '#f5c842';
     cardEl.textContent = d !== null ? toCardinal(d) : '---';
     cardEl.style.color = '#f5c842';
-    if(needle && d!==null) needle.setAttribute('transform',`rotate(${d},75,75)`);
     if(hint) hint.textContent = 'point at lightning → tap compass to lock';
     if(ring) ring.style.boxShadow = '0 0 16px rgba(245,200,66,.3)';
   } else {
-    // Idle
     const d = liveHeading !== null ? Math.round(liveHeading) : null;
     degEl.textContent  = d !== null ? String(d).padStart(3,'0')+'°' : '---';
     degEl.style.color  = '';
     cardEl.textContent = d !== null ? toCardinal(d) : (compassEnabled ? '---' : 'NO COMPASS');
     cardEl.style.color = '';
-    if(needle && d!==null) needle.setAttribute('transform',`rotate(${d},75,75)`);
     if(hint) hint.textContent = 'tap SAW FLASH, point at lightning, tap compass to lock';
     if(ring) ring.style.boxShadow = '';
   }
