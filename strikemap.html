@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Strikemap</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --bg:#080c10; --surface:#0d1318; --surface2:#111820; --border:#1e2d38;
+    --yellow:#f5c842; --orange:#f08030; --red:#e03030; --old:#4a7aaa;
+    --cyan:#30c8e0; --text:#c8dce8; --dim:#5a7a8a;
+    --mono:'Share Tech Mono',monospace; --cond:'Barlow Condensed',sans-serif;
+    --hdr:50px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--cond);}
+
+  /* HEADER */
+  header{
+    height:var(--hdr);display:flex;align-items:center;justify-content:space-between;
+    padding:0 16px;border-bottom:1px solid var(--border);background:var(--surface);
+    position:relative;z-index:200;
+  }
+  .logo{font-weight:900;font-size:20px;letter-spacing:4px;color:var(--yellow);text-shadow:0 0 14px rgba(245,200,66,.35);}
+  .logo span{color:var(--cyan);}
+  .nav{display:flex;gap:3px;}
+  .nav-btn{
+    font-family:var(--cond);font-weight:700;font-size:12px;letter-spacing:2px;
+    padding:5px 14px;border:1px solid var(--border);background:transparent;
+    color:var(--dim);cursor:pointer;transition:all .15s;text-transform:uppercase;
+  }
+  .nav-btn.active{background:var(--yellow);color:var(--bg);border-color:var(--yellow);}
+  .live-badge{font-family:var(--mono);font-size:10px;color:var(--dim);display:flex;align-items:center;gap:5px;}
+  .live-dot{width:6px;height:6px;border-radius:50%;background:var(--yellow);animation:blink 1.5s ease-in-out infinite;}
+  @keyframes blink{0%,100%{opacity:1;box-shadow:0 0 6px var(--yellow)}50%{opacity:.3;box-shadow:none}}
+
+  /* SCREENS */
+  .screen{display:none;}
+  .screen.active{display:flex;flex-direction:column;}
+  #screen-record,#screen-map{height:calc(100vh - var(--hdr));}
+
+  /* ── RECORD SCREEN ── */
+  #screen-record{flex-direction:row;overflow:hidden;}
+  .panel-l{width:52%;border-right:1px solid var(--border);padding:16px 14px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;}
+  .panel-r{flex:1;padding:14px 12px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;}
+  .sec-label{font-family:var(--mono);font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--dim);margin-bottom:4px;}
+
+  /* Compass */
+  .compass-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;}
+  .compass-ring{position:relative;width:150px;height:150px;}
+  .compass-ring svg{width:100%;height:100%;}
+  .compass-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;}
+  .compass-deg{font-family:var(--mono);font-size:24px;color:var(--yellow);line-height:1;}
+  .compass-card{font-family:var(--cond);font-weight:700;font-size:15px;color:var(--cyan);letter-spacing:2px;}
+
+  /* Buttons */
+  .big-btn{width:100%;padding:16px 12px;cursor:pointer;font-family:var(--cond);font-weight:900;font-size:16px;letter-spacing:3px;text-transform:uppercase;border:2px solid;transition:all .15s;}
+  .big-btn .sub{display:block;font-size:10px;font-weight:400;letter-spacing:2px;margin-top:3px;opacity:.5;}
+  .btn-flash{background:linear-gradient(135deg,#2a1a00,#140f00);border-color:var(--yellow);color:var(--yellow);}
+  .btn-flash:active{transform:scale(.97);box-shadow:0 0 60px rgba(245,200,66,.5);}
+  .btn-thunder{background:linear-gradient(135deg,#001a2a,#000d18);border-color:var(--cyan);color:var(--cyan);}
+  .btn-thunder.armed{border-color:var(--orange);color:var(--orange);background:linear-gradient(135deg,#1a0d00,#0d0800);animation:arm .8s ease-in-out infinite;}
+  @keyframes arm{0%,100%{box-shadow:0 0 8px rgba(240,128,48,.2)}50%{box-shadow:0 0 24px rgba(240,128,48,.5)}}
+
+  /* Calc */
+  .calc-box{background:var(--surface2);border:1px solid var(--border);padding:12px 14px;}
+  .calc-timer{font-family:var(--mono);font-size:32px;color:var(--orange);text-align:center;padding:4px 0;letter-spacing:2px;}
+  .calc-row{display:flex;justify-content:space-between;align-items:baseline;margin-top:5px;}
+  .calc-key{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:1px;}
+  .calc-val{font-family:var(--mono);font-size:15px;color:var(--yellow);}
+  .calc-val.cy{color:var(--cyan);}
+  .calc-val.dm{color:var(--dim);font-size:12px;}
+
+  /* Trend */
+  .trend-box{background:var(--surface2);border:1px solid var(--border);padding:10px 12px;}
+  .trend-bars{display:flex;align-items:flex-end;gap:3px;height:32px;margin:6px 0 4px;}
+  .trend-bar-col{flex:1;border-radius:1px;min-height:3px;}
+  .trend-status{font-family:var(--cond);font-weight:700;font-size:12px;letter-spacing:2px;}
+  .approaching{color:var(--red);}
+  .receding{color:#30a860;}
+
+  /* Log */
+  .log-header{display:flex;justify-content:space-between;align-items:center;}
+  .log-count{font-family:var(--mono);font-size:10px;color:var(--cyan);}
+  .clear-btn{font-family:var(--mono);font-size:9px;color:var(--dim);background:none;border:1px solid var(--border);padding:2px 7px;cursor:pointer;}
+  .strike-log{display:flex;flex-direction:column;gap:5px;}
+  .s-entry{border-left:3px solid;padding:8px 10px;background:var(--surface2);display:grid;grid-template-columns:1fr auto;gap:2px;animation:slidein .25s ease;}
+  @keyframes slidein{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:none}}
+  .s-entry.recent{border-color:var(--yellow);}
+  .s-entry.mid{border-color:var(--orange);}
+  .s-entry.old{border-color:var(--old);}
+  .s-dist{font-family:var(--mono);font-size:14px;line-height:1;}
+  .s-dist.recent{color:var(--yellow);}
+  .s-dist.mid{color:var(--orange);}
+  .s-dist.old{color:var(--dim);}
+  .s-meta{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:1px;margin-top:2px;}
+  .s-bearing{font-family:var(--mono);font-size:17px;text-align:right;}
+  .s-bearing.recent{color:var(--cyan);}
+  .s-bearing.mid{color:var(--orange);}
+  .s-bearing.old{color:var(--dim);}
+  .s-time{font-family:var(--mono);font-size:9px;color:var(--dim);text-align:right;}
+
+  /* ── MAP SCREEN ── */
+  #screen-map{position:relative;}
+
+  .map-controls{
+    height:40px;display:flex;align-items:center;gap:6px;padding:0 12px;
+    border-bottom:1px solid var(--border);background:var(--surface);z-index:100;flex-shrink:0;
+  }
+  .mc-btn{font-family:var(--mono);font-size:9px;letter-spacing:1px;padding:4px 10px;border:1px solid var(--border);background:transparent;color:var(--dim);cursor:pointer;transition:all .15s;text-transform:uppercase;}
+  .mc-btn.active,.mc-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+  .mc-sep{width:1px;height:16px;background:var(--border);}
+  .mc-label{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:1px;}
+
+  /* Map container */
+  .map-wrap{position:relative;flex:1;overflow:hidden;}
+
+  .map-img{
+    display:block;width:100%;height:100%;
+    object-fit:cover;object-position:center;
+    filter:saturate(0.55) brightness(0.75);
+  }
+
+  .map-svg{
+    position:absolute;inset:0;width:100%;height:100%;
+    overflow:visible;
+  }
+
+  /* Bottom strip */
+  .map-strip{
+    height:52px;display:flex;align-items:center;gap:16px;padding:0 14px;
+    border-top:1px solid var(--border);background:var(--surface);z-index:100;flex-shrink:0;flex-wrap:wrap;overflow:hidden;
+  }
+  .ms{display:flex;flex-direction:column;gap:1px;}
+  .ms-key{font-family:var(--mono);font-size:8px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;}
+  .ms-val{font-family:var(--mono);font-size:13px;color:var(--yellow);}
+  .ms-val.cy{color:var(--cyan);}
+  .ms-val.rd{color:var(--red);}
+  .ms-val.gn{color:#30a860;}
+  .approach-alert{margin-left:auto;background:rgba(224,48,48,.12);border:1px solid var(--red);padding:4px 12px;display:flex;align-items:center;gap:6px;}
+  .alert-icon{animation:blink 1s ease-in-out infinite;}
+  .alert-txt{font-family:var(--cond);font-weight:700;font-size:12px;letter-spacing:2px;color:var(--red);text-transform:uppercase;}
+
+  /* Legend */
+  .map-legend{
+    position:absolute;bottom:60px;right:12px;
+    background:rgba(8,12,16,.88);border:1px solid var(--border);
+    padding:8px 12px;z-index:50;backdrop-filter:blur(4px);
+    display:flex;flex-direction:column;gap:5px;
+  }
+  .leg-row{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:1px;}
+  .leg-sw{width:20px;height:3px;border-radius:1px;}
+
+  /* Leaflet map */
+  #map{width:100%;height:100%;}
+  .leaflet-control-attribution{
+    background:rgba(8,12,16,.7)!important;color:var(--dim)!important;
+    font-family:var(--mono);font-size:7px!important;border-top:1px solid var(--border)!important;
+  }
+  .leaflet-control-attribution a{color:var(--dim)!important;}
+
+  /* Geo status overlay */
+  #geo-status{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    background:rgba(8,12,16,.9);border:1px solid var(--border);
+    padding:12px 20px;font-family:var(--mono);font-size:11px;color:var(--dim);
+    letter-spacing:2px;text-align:center;z-index:500;pointer-events:none;
+    text-transform:uppercase;
+  }
+  #geo-status.hidden{display:none;}
+
+  @media(max-width:520px){
+    #screen-record{flex-direction:column;}
+    .panel-l{width:100%;border-right:none;border-bottom:1px solid var(--border);}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">STRIKE<span>MAP</span></div>
+  <nav class="nav">
+    <button class="nav-btn active" id="tab-record" onclick="showScreen('record')">RECORD</button>
+    <button class="nav-btn" id="tab-map" onclick="showScreen('map')">MAP</button>
+  </nav>
+  <div class="live-badge"><span class="live-dot"></span><span id="obs-badge">6 OBS</span></div>
+</header>
+
+<!-- ══ RECORD ══ -->
+<section class="screen active" id="screen-record">
+  <div class="panel-l">
+    <div class="compass-wrap">
+      <div class="sec-label">BEARING — POINT PHONE AT FLASH</div>
+      <div class="compass-ring">
+        <svg viewBox="0 0 150 150">
+          <circle cx="75" cy="75" r="70" fill="none" stroke="#1e2d38" stroke-width="1"/>
+          <g stroke="#2a3d4a" stroke-width="1">
+            <line x1="75" y1="7" x2="75" y2="17"/>
+            <line x1="75" y1="133" x2="75" y2="143"/>
+            <line x1="7" y1="75" x2="17" y2="75"/>
+            <line x1="133" y1="75" x2="143" y2="75"/>
+          </g>
+          <text x="75" y="26"  text-anchor="middle" fill="#5a7a8a" font-family="'Share Tech Mono'" font-size="9">N</text>
+          <text x="75" y="137" text-anchor="middle" fill="#5a7a8a" font-family="'Share Tech Mono'" font-size="9">S</text>
+          <text x="14" y="79"  text-anchor="middle" fill="#5a7a8a" font-family="'Share Tech Mono'" font-size="9">W</text>
+          <text x="136" y="79" text-anchor="middle" fill="#5a7a8a" font-family="'Share Tech Mono'" font-size="9">E</text>
+          <!-- needle pointing NNE ~043° -->
+          <line x1="75" y1="75" x2="105" y2="30" stroke="#f5c842" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="75" cy="75" r="4" fill="#f5c842"/>
+          <circle cx="75" cy="75" r="2.5" fill="#080c10"/>
+        </svg>
+        <div class="compass-center">
+          <div class="compass-deg">043°</div>
+          <div class="compass-card">NNE</div>
+        </div>
+      </div>
+      <div class="sec-label" style="text-align:center;font-size:8px;">heading locks when you tap FLASH</div>
+    </div>
+
+    <button class="big-btn btn-flash" onclick="mockFlash(this)">
+      ⚡ SAW FLASH
+      <span class="sub">tap immediately on lightning</span>
+    </button>
+    <button class="big-btn btn-thunder armed" id="btn-thunder" onclick="mockThunder(this)">
+      ◎ HEARD THUNDER
+      <span class="sub" id="thunder-sub">waiting for thunder...</span>
+    </button>
+
+    <div class="calc-box">
+      <div class="sec-label">LIVE CALCULATION</div>
+      <div class="calc-timer" id="live-timer">2.3s</div>
+      <div class="calc-row"><span class="calc-key">DELAY</span><span class="calc-val" id="c-delay">2.3s</span></div>
+      <div class="calc-row"><span class="calc-key">DISTANCE</span><span class="calc-val cy" id="c-dist">1.4 mi</span></div>
+      <div class="calc-row"><span class="calc-key">BEARING</span><span class="calc-val dm">043° NNE</span></div>
+    </div>
+  </div>
+
+  <div class="panel-r">
+    <div class="trend-box">
+      <div class="sec-label">DISTANCE TREND</div>
+      <div class="trend-bars">
+        <div class="trend-bar-col" style="height:60%;background:#4a7aaa;opacity:.6"></div>
+        <div class="trend-bar-col" style="height:52%;background:#4a7aaa;opacity:.7"></div>
+        <div class="trend-bar-col" style="height:66%;background:#f08030;opacity:.7"></div>
+        <div class="trend-bar-col" style="height:50%;background:#f08030;opacity:.8"></div>
+        <div class="trend-bar-col" style="height:39%;background:#e03030;opacity:.85"></div>
+        <div class="trend-bar-col" style="height:32%;background:#e03030;opacity:1"></div>
+      </div>
+      <div class="trend-status approaching">▼ APPROACHING · 0.28 mi closer/strike</div>
+    </div>
+
+    <div class="log-header">
+      <div class="sec-label">LOG</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span class="log-count">6 STRIKES</span>
+        <button class="clear-btn">CLEAR</button>
+      </div>
+    </div>
+
+    <div class="strike-log">
+      <div class="s-entry recent">
+        <div><div class="s-dist recent">1.4 mi</div><div class="s-meta">2.3s · 043° NNE</div></div>
+        <div><div class="s-bearing recent">NNE</div><div class="s-time">0:52 ago</div></div>
+      </div>
+      <div class="s-entry recent">
+        <div><div class="s-dist recent">1.7 mi</div><div class="s-meta">2.8s · 038° NNE</div></div>
+        <div><div class="s-bearing recent">NNE</div><div class="s-time">3:10 ago</div></div>
+      </div>
+      <div class="s-entry mid">
+        <div><div class="s-dist mid">2.1 mi</div><div class="s-meta">3.4s · 055° NE</div></div>
+        <div><div class="s-bearing mid">NE</div><div class="s-time">6:44 ago</div></div>
+      </div>
+      <div class="s-entry mid">
+        <div><div class="s-dist mid">2.4 mi</div><div class="s-meta">3.9s · 061° ENE</div></div>
+        <div><div class="s-bearing mid">ENE</div><div class="s-time">10:20 ago</div></div>
+      </div>
+      <div class="s-entry old">
+        <div><div class="s-dist old">2.8 mi</div><div class="s-meta">4.5s · 072° ENE</div></div>
+        <div><div class="s-bearing old">ENE</div><div class="s-time">16:01 ago</div></div>
+      </div>
+      <div class="s-entry old">
+        <div><div class="s-dist old">3.1 mi</div><div class="s-meta">5.0s · 078° E</div></div>
+        <div><div class="s-bearing old">E</div><div class="s-time">21:33 ago</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ MAP ══ -->
+<section class="screen" id="screen-map">
+  <div class="map-controls">
+    <span class="mc-label">AGE</span>
+    <button class="mc-btn active">ALL</button>
+    <button class="mc-btn">10 MIN</button>
+    <button class="mc-btn">30 MIN</button>
+    <div class="mc-sep"></div>
+    <button class="mc-btn">⊕ CENTER</button>
+  </div>
+
+  <div class="map-wrap">
+    <div id="map"></div>
+    <div id="geo-status">ACQUIRING LOCATION…</div>
+
+    <!-- Legend -->
+    <div class="map-legend">
+      <div class="leg-row"><div class="leg-sw" style="background:var(--yellow)"></div>RECENT &lt;5 MIN</div>
+      <div class="leg-row"><div class="leg-sw" style="background:var(--orange)"></div>MID 5–15 MIN</div>
+      <div class="leg-row"><div class="leg-sw" style="background:var(--old)"></div>OLD &gt;15 MIN</div>
+      <div style="font-family:var(--mono);font-size:8px;color:var(--dim);margin-top:4px;border-top:1px solid var(--border);padding-top:4px;line-height:1.6;">
+        ELLIPSE WIDTH = ±5° BEARING<br>
+        ELLIPSE DEPTH = ±250ms TIMING<br>
+        WIDTH GROWS WITH DISTANCE
+      </div>
+    </div>
+  </div>
+
+  <div class="map-strip">
+    <div class="ms"><span class="ms-key">OBS</span><span class="ms-val">6</span></div>
+    <div class="ms"><span class="ms-key">CLOSEST</span><span class="ms-val">1.4 mi</span></div>
+    <div class="ms"><span class="ms-key">DIRECTION</span><span class="ms-val cy">NNE</span></div>
+    <div class="ms"><span class="ms-key">TREND</span><span class="ms-val rd">▼ CLOSER</span></div>
+    <div class="approach-alert">
+      <span class="alert-icon">⚡</span>
+      <span class="alert-txt">APPROACHING</span>
+    </div>
+  </div>
+</section>
+
+<script>
+// ── SCREEN NAV ──────────────────────────────────────────────────────────────
+function showScreen(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  // Leaflet needs a size-invalidation when its container becomes visible
+  if(name==='map' && window.sm_map) window.sm_map.invalidateSize();
+}
+
+// ── MOCK FLASH/THUNDER (unchanged from mockup) ───────────────────────────────
+let flashTime=null, timerTick=null;
+function mockFlash(btn){
+  flashTime=Date.now();
+  document.getElementById('btn-thunder').classList.add('armed');
+  document.getElementById('thunder-sub').textContent='tap when you hear it...';
+  btn.style.boxShadow='0 0 60px rgba(245,200,66,.7)';
+  setTimeout(()=>btn.style.boxShadow='',400);
+  if(timerTick) clearInterval(timerTick);
+  timerTick=setInterval(()=>{
+    if(!flashTime) return clearInterval(timerTick);
+    document.getElementById('live-timer').textContent=((Date.now()-flashTime)/1000).toFixed(1)+'s';
+  },100);
+}
+function mockThunder(btn){
+  if(!flashTime) return;
+  clearInterval(timerTick);
+  const d=(Date.now()-flashTime)/1000;
+  const mi=(d*343*0.000621371).toFixed(2);
+  document.getElementById('c-delay').textContent=d.toFixed(1)+'s';
+  document.getElementById('c-dist').textContent=mi+' mi';
+  document.getElementById('live-timer').textContent=d.toFixed(1)+'s';
+  btn.classList.remove('armed');
+  document.getElementById('thunder-sub').textContent='press Flash first';
+  btn.style.boxShadow='0 0 30px rgba(48,200,224,.5)';
+  setTimeout(()=>btn.style.boxShadow='',400);
+  flashTime=null;
+}
+
+// ── MAP ──────────────────────────────────────────────────────────────────────
+
+// Fallback center: James Island / Charleston, SC
+const FALLBACK_LAT = 32.7357;
+const FALLBACK_LON = -79.9956;
+const ZOOM = 12;
+
+// Initialize Leaflet — all interaction disabled per spec
+const map = L.map('map', {
+  center: [FALLBACK_LAT, FALLBACK_LON],
+  zoom: ZOOM,
+  zoomControl:       false,
+  dragging:          false,
+  touchZoom:         false,
+  doubleClickZoom:   false,
+  scrollWheelZoom:   false,
+  boxZoom:           false,
+  keyboard:          false,
+  tap:               false,   // disables tap handler on mobile
+});
+window.sm_map = map;  // expose so showScreen() can invalidateSize
+
+// CartoDB Dark Matter — no API key, fits the dark UI perfectly
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>',
+  subdomains: 'abcd',
+  maxZoom: 19,
+}).addTo(map);
+
+// "YOU ARE HERE" marker — custom cyan pulsing dot via divIcon
+const youIcon = L.divIcon({
+  className: '',
+  html: `<div style="
+    width:14px;height:14px;border-radius:50%;
+    background:#30c8e0;
+    box-shadow:0 0 0 3px rgba(48,200,224,.3), 0 0 16px rgba(48,200,224,.6);
+    position:relative;
+  ">
+    <div style="
+      position:absolute;top:-4px;left:-4px;
+      width:22px;height:22px;border-radius:50%;
+      border:1.5px solid rgba(48,200,224,.5);
+      animation:pulse-ring 2.5s ease-out infinite;
+    "></div>
+  </div>`,
+  iconSize: [14,14],
+  iconAnchor: [7,7],
+});
+
+// Inject the pulse keyframe into the page
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes pulse-ring {
+    0%   { transform:scale(1);   opacity:.6; }
+    100% { transform:scale(2.4); opacity:0;  }
+  }
+`;
+document.head.appendChild(style);
+
+let userMarker = null;
+let userLat = FALLBACK_LAT;
+let userLon = FALLBACK_LON;
+
+function placeUserMarker(lat, lon){
+  userLat = lat; userLon = lon;
+  if(userMarker) map.removeLayer(userMarker);
+  userMarker = L.marker([lat, lon], { icon: youIcon, interactive: false }).addTo(map);
+}
+
+// Place marker at fallback immediately so the map isn't empty on load
+placeUserMarker(FALLBACK_LAT, FALLBACK_LON);
+
+// Geolocation
+const geoStatus = document.getElementById('geo-status');
+
+function onGeoSuccess(pos){
+  const { latitude: lat, longitude: lon, accuracy } = pos.coords;
+  map.setView([lat, lon], ZOOM);
+  placeUserMarker(lat, lon);
+  geoStatus.classList.add('hidden');
+  console.log(`[strikemap] Located: ${lat.toFixed(5)}, ${lon.toFixed(5)} ±${Math.round(accuracy)}m`);
+}
+
+function onGeoError(err){
+  console.warn('[strikemap] Geolocation error:', err.message);
+  geoStatus.textContent = 'LOCATION UNAVAILABLE — USING DEFAULT';
+  setTimeout(()=>geoStatus.classList.add('hidden'), 3000);
+}
+
+if('geolocation' in navigator){
+  geoStatus.textContent = 'ACQUIRING LOCATION…';
+  navigator.geolocation.getCurrentPosition(onGeoSuccess, onGeoError, {
+    enableHighAccuracy: true,
+    timeout: 10000,
+    maximumAge: 60000,
+  });
+} else {
+  onGeoError({ message: 'Geolocation not supported' });
+}
+
+// ── RE-CENTER button (wired to the ⊕ CENTER button in map controls) ──────────
+function recenterMap(){
+  map.setView([userLat, userLon], ZOOM);
+}
+
+// Wire the center button — find it by text content
+document.querySelectorAll('.mc-btn').forEach(btn => {
+  if(btn.textContent.includes('CENTER')) btn.onclick = recenterMap;
+});
+</script>
+</body>
+</html>
