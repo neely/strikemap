@@ -172,6 +172,15 @@
   }
   #geo-status.hidden{display:none;}
 
+  /* Distant strike notice */
+  #distant-notice{
+    position:absolute;top:8px;left:50%;transform:translateX(-50%);
+    background:rgba(74,122,170,.15);border:1px solid var(--old);
+    padding:5px 14px;font-family:var(--mono);font-size:9px;color:var(--old);
+    letter-spacing:2px;text-align:center;z-index:200;pointer-events:none;
+    text-transform:uppercase;white-space:nowrap;
+  }
+
   @media(max-width:520px){
     #screen-record{flex-direction:column;}
     .panel-l{width:100%;border-right:none;border-bottom:1px solid var(--border);}
@@ -295,9 +304,9 @@
 <section class="screen" id="screen-map">
   <div class="map-controls">
     <span class="mc-label">AGE</span>
-    <button class="mc-btn active">ALL</button>
-    <button class="mc-btn">10 MIN</button>
-    <button class="mc-btn">30 MIN</button>
+    <button class="mc-btn active" data-age="all">ALL</button>
+    <button class="mc-btn" data-age="10">10 MIN</button>
+    <button class="mc-btn" data-age="30">30 MIN</button>
     <div class="mc-sep"></div>
     <button class="mc-btn">⊕ CENTER</button>
   </div>
@@ -305,6 +314,7 @@
   <div class="map-wrap">
     <div id="map"></div>
     <div id="geo-status">ACQUIRING LOCATION…</div>
+    <div id="distant-notice" style="display:none;"></div>
 
     <!-- Legend -->
     <div class="map-legend">
@@ -324,7 +334,7 @@
     <div class="ms"><span class="ms-key">CLOSEST</span><span class="ms-val">1.4 mi</span></div>
     <div class="ms"><span class="ms-key">DIRECTION</span><span class="ms-val cy">NNE</span></div>
     <div class="ms"><span class="ms-key">TREND</span><span class="ms-val rd">▼ CLOSER</span></div>
-    <div class="approach-alert">
+    <div class="approach-alert" style="display:none;">
       <span class="alert-icon">⚡</span>
       <span class="alert-txt">APPROACHING</span>
     </div>
@@ -333,7 +343,7 @@
 
 <script>
 // ═══════════════════════════════════════════════════════════════════════════
-// STRIKEMAP — Session 2: Compass + localStorage + real flash/thunder logic
+// STRIKEMAP — Session 3: Age filter fix, DISTANT notice, approach alert, fetchExternalStrikes stub
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── SCREEN NAV ──────────────────────────────────────────────────────────────
@@ -353,6 +363,10 @@ const MAX_DIST_MI = 6.2;         // beyond this → DISTANT, no ellipse
 const TIMING_ERR_S = 0.25;       // ±250ms timing uncertainty
 const BEARING_ERR_DEG = 5;       // ±5° compass uncertainty
 const LS_KEY = 'sm_strikes';
+
+// ── EXTERNAL STRIKES STUB ─────────────────────────────────────────────────────
+// Deferred: hook for Blitzortung or other external data source. Returns [] for now.
+async function fetchExternalStrikes(){ return []; }
 
 // ── STORAGE ─────────────────────────────────────────────────────────────────
 function loadStrikes(){
@@ -932,8 +946,20 @@ function updateMapStrip(strikes, closest, hasDistant){
   const dirEl  = document.querySelector('.map-strip .ms:nth-child(3) .ms-val');
   const trendEl= document.querySelector('.map-strip .ms:nth-child(4) .ms-val');
   const alertEl= document.querySelector('.approach-alert');
+  const distantEl = document.getElementById('distant-notice');
 
   if(obsEl) obsEl.textContent = strikes.length;
+
+  // DISTANT banner
+  if(distantEl){
+    if(hasDistant){
+      const n = strikes.filter(s=>s.distMi > MAX_DIST_MI).length;
+      distantEl.textContent = `${n} DISTANT STRIKE${n>1?'S':''} >6 MI — NOT PLOTTED`;
+      distantEl.style.display = 'block';
+    } else {
+      distantEl.style.display = 'none';
+    }
+  }
 
   if(closest){
     if(cloEl) cloEl.textContent = closest.distMi.toFixed(2)+' mi';
@@ -965,17 +991,13 @@ function updateMapStrip(strikes, closest, hasDistant){
 
 // ── AGE FILTER BUTTONS ────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', ()=>{
-  const ageBtns = document.querySelectorAll('.map-controls .mc-btn');
-  ageBtns.forEach(btn=>{
-    const txt = btn.textContent.trim();
-    if(txt==='ALL'||txt==='10 MIN'||txt==='30 MIN'){
-      btn.addEventListener('click', ()=>{
-        ageBtns.forEach(b=>{ if(['ALL','10 MIN','30 MIN'].includes(b.textContent.trim())) b.classList.remove('active'); });
-        btn.classList.add('active');
-        mapAgeFilter = txt==='ALL' ? 'all' : txt.replace(' MIN','');
-        renderMapStrikes();
-      });
-    }
+  document.querySelectorAll('.mc-btn[data-age]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.mc-btn[data-age]').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      mapAgeFilter = btn.dataset.age;
+      renderMapStrikes();
+    });
   });
 });
 </script>
