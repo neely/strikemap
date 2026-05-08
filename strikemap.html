@@ -322,9 +322,9 @@
       <div class="leg-row"><div class="leg-sw" style="background:var(--orange)"></div>MID 5–15 MIN</div>
       <div class="leg-row"><div class="leg-sw" style="background:var(--old)"></div>OLD &gt;15 MIN</div>
       <div style="font-family:var(--mono);font-size:8px;color:var(--dim);margin-top:4px;border-top:1px solid var(--border);padding-top:4px;line-height:1.6;">
-        ELLIPSE WIDTH = ±5° BEARING<br>
-        ELLIPSE DEPTH = ±250ms TIMING<br>
-        WIDTH GROWS WITH DISTANCE
+        WEDGE WIDTH = ±5° BEARING ERROR<br>
+        ARC DEPTH = ±500ms TIMING ERROR<br>
+        WEDGE FANS OUT WITH DISTANCE
       </div>
     </div>
   </div>
@@ -360,8 +360,6 @@ function showScreen(name){
 const SOUND_MPS = 343;           // m/s
 const MI_PER_M  = 0.000621371;
 const MAX_DIST_MI = 6.2;         // beyond this → DISTANT, no ellipse
-const TIMING_ERR_S = 0.25;       // ±250ms timing uncertainty
-const BEARING_ERR_DEG = 5;       // ±5° compass uncertainty
 const LS_KEY = 'sm_strikes';
 
 // ── EXTERNAL STRIKES STUB ─────────────────────────────────────────────────────
@@ -800,40 +798,42 @@ document.querySelectorAll('.mc-btn').forEach(btn=>{
   if(btn.textContent.includes('CENTER')) btn.onclick=recenterMap;
 });
 
-// ── ELLIPSE POLYGON HELPER ────────────────────────────────────────────────────
-// Returns an L.polygon representing the uncertainty ellipse for one strike.
-// bearingDeg: 0=north, distMi: distance in miles
-function makeEllipsePolygon(lat, lon, bearingDeg, distMi, color){
-  const radialM   = TIMING_ERR_S * SOUND_MPS;                       // ±86m (short)
-  const tangM     = Math.sin(BEARING_ERR_DEG * Math.PI/180) * distMi * 1609.34; // grows with dist
+// ── PIZZA CRUST POLYGON ───────────────────────────────────────────────────────
+// Annular sector representing true measurement uncertainty:
+//   - Bearing error ±5°  → wedge that fans out with distance
+//   - Timing error ±500ms → inner/outer arc band (~±0.107 mi)
+// Shape: outer arc (left→right) + inner arc (right→left), closed polygon.
+// Collapses to a wedge if innerDist ≤ 0 (strike under ~560ft away).
+function makePizzaCrust(userLat, userLon, bearingDeg, distMi, color){
+  const DELTA_D_MI = 0.5 * SOUND_MPS * MI_PER_M;  // 0.5s × 343 m/s → ~0.107 mi
+  const DELTA_B    = 5;                             // ±5° bearing error
+  const ARC_STEPS  = 12;                            // interpolation points per arc
 
-  const STEPS = 36;
-  const R_EARTH = 6371000; // meters
+  const innerDist = Math.max(0, distMi - DELTA_D_MI);
+  const outerDist = distMi + DELTA_D_MI;
+  const bearLeft  = bearingDeg - DELTA_B;
+  const bearRight = bearingDeg + DELTA_B;
 
-  // Build ellipse in local East-North coords, rotate to bearing
-  const bearRad = bearingDeg * Math.PI / 180;
   const points = [];
-  for(let i=0; i<STEPS; i++){
-    const t = (2*Math.PI*i)/STEPS;
-    // Unrotated: x=tangential (E), y=radial (N along bearing)
-    const ex = tangM  * Math.cos(t);
-    const ey = radialM * Math.sin(t);
-    // Rotate by bearingDeg so major axis (tangential) is perpendicular to bearing
-    const rx =  ex*Math.cos(bearRad) - ey*Math.sin(bearRad);
-    const ry =  ex*Math.sin(bearRad) + ey*Math.cos(bearRad);
-    // Project to lat/lon
-    const dLat = ry / R_EARTH * (180/Math.PI);
-    const dLon = rx / R_EARTH * (180/Math.PI) / Math.cos(lat*Math.PI/180);
-    points.push([lat+dLat, lon+dLon]);
+
+  // Outer arc: left → right at outerDist
+  for(let i = 0; i <= ARC_STEPS; i++){
+    const b = bearLeft + (bearRight - bearLeft) * (i / ARC_STEPS);
+    points.push(strikeLatLon(userLat, userLon, b, outerDist));
+  }
+
+  // Inner arc: right → left at innerDist (reversed to close shape correctly)
+  for(let i = ARC_STEPS; i >= 0; i--){
+    const b = bearLeft + (bearRight - bearLeft) * (i / ARC_STEPS);
+    points.push(strikeLatLon(userLat, userLon, b, innerDist));
   }
 
   return L.polygon(points, {
     color,
-    weight: 1.8,
+    weight: 1.5,
     opacity: 0.85,
     fillColor: color,
-    fillOpacity: 0.18,
-    dashArray: distMi < 5 ? null : '5 4',
+    fillOpacity: 0.20,
     interactive: false,
   });
 }
@@ -907,8 +907,8 @@ function renderMapStrikes(){
     map.addLayer(line);
     strikeLayers.push(line);
 
-    // Uncertainty ellipse
-    const ellipse = makeEllipsePolygon(sLat, sLon, s.bear, s.distMi, color);
+    // Uncertainty region (pizza crust / annular sector)
+    const ellipse = makePizzaCrust(userLat, userLon, s.bear, s.distMi, color);
     map.addLayer(ellipse);
     strikeLayers.push(ellipse);
 
