@@ -28,8 +28,8 @@
   .logo span{color:var(--cyan);}
   .nav{display:flex;gap:3px;}
   .nav-btn{
-    font-family:var(--cond);font-weight:700;font-size:12px;letter-spacing:2px;
-    padding:5px 14px;border:1px solid var(--border);background:transparent;
+    font-family:var(--cond);font-weight:700;font-size:11px;letter-spacing:1.5px;
+    padding:5px 10px;border:1px solid var(--border);background:transparent;
     color:var(--dim);cursor:pointer;transition:all .15s;text-transform:uppercase;
   }
   .nav-btn.active{background:var(--yellow);color:var(--bg);border-color:var(--yellow);}
@@ -40,28 +40,46 @@
   /* SCREENS */
   .screen{display:none;}
   .screen.active{display:flex;flex-direction:column;}
-  #screen-record,#screen-map{height:calc(100vh - var(--hdr));}
+  #screen-record,#screen-trends,#screen-map{height:calc(100vh - var(--hdr));}
 
-  /* ── RECORD SCREEN ── */
-  #screen-record{flex-direction:row;overflow:hidden;}
-  .panel-l{width:52%;border-right:1px solid var(--border);padding:16px 14px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;}
-  .panel-r{flex:1;padding:14px 12px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;}
+  /* ── RECORD — single full-width column ── */
+  #screen-record{overflow-y:auto;padding:16px 14px;gap:14px;}
   .sec-label{font-family:var(--mono);font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--dim);margin-bottom:4px;}
 
   /* Compass */
   .compass-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;}
-  .compass-ring{position:relative;width:150px;height:150px;}
-  .compass-ring svg{width:100%;height:100%;}
+  .compass-ring-btn{position:relative;width:150px;height:150px;background:none;border:none;cursor:pointer;padding:0;}
+  .compass-ring-btn svg{width:100%;height:100%;}
   .compass-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;}
   .compass-deg{font-family:var(--mono);font-size:24px;color:var(--yellow);line-height:1;}
   .compass-card{font-family:var(--cond);font-weight:700;font-size:15px;color:var(--cyan);letter-spacing:2px;}
+
+  /* Couch mode */
+  .couch-toggle{
+    width:100%;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;
+    background:var(--surface2);border:1px solid var(--border);cursor:pointer;transition:all .15s;
+  }
+  .couch-toggle.active{border-color:var(--cyan);background:rgba(48,200,224,.06);}
+  .couch-label-txt{font-family:var(--cond);font-weight:700;font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);}
+  .couch-toggle.active .couch-label-txt{color:var(--cyan);}
+  .couch-sub{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:1px;margin-top:2px;}
+  .couch-toggle.active .couch-sub{color:rgba(48,200,224,.6);}
+  .couch-pip{width:32px;height:18px;border-radius:9px;border:1.5px solid var(--border);background:var(--bg);position:relative;transition:all .2s;flex-shrink:0;}
+  .couch-toggle.active .couch-pip{border-color:var(--cyan);background:rgba(48,200,224,.15);}
+  .couch-pip::after{content:'';position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--dim);transition:all .2s;}
+  .couch-toggle.active .couch-pip::after{transform:translateX(14px);background:var(--cyan);}
+  .couch-status-label{
+    font-family:var(--mono);font-size:11px;letter-spacing:3px;text-align:center;
+    color:var(--cyan);padding:8px 0;text-transform:uppercase;
+    border:1px solid rgba(48,200,224,.2);background:rgba(48,200,224,.04);
+  }
 
   /* Buttons */
   .big-btn{width:100%;padding:16px 12px;cursor:pointer;font-family:var(--cond);font-weight:900;font-size:16px;letter-spacing:3px;text-transform:uppercase;border:2px solid;transition:all .15s;}
   .big-btn .sub{display:block;font-size:10px;font-weight:400;letter-spacing:2px;margin-top:3px;opacity:.5;}
   .btn-flash{background:linear-gradient(135deg,#2a1a00,#140f00);border-color:var(--yellow);color:var(--yellow);}
   .btn-flash:active{transform:scale(.97);box-shadow:0 0 60px rgba(245,200,66,.5);}
-  .btn-thunder{background:linear-gradient(135deg,#001a2a,#000d18);border-color:var(--cyan);color:var(--cyan);}
+  .btn-thunder{background:linear-gradient(135deg,#001a2a,#000d18);border-color:var(--dim);color:var(--dim);}
   .btn-thunder.armed{border-color:var(--orange);color:var(--orange);background:linear-gradient(135deg,#1a0d00,#0d0800);animation:arm .8s ease-in-out infinite;}
   @keyframes arm{0%,100%{box-shadow:0 0 8px rgba(240,128,48,.2)}50%{box-shadow:0 0 24px rgba(240,128,48,.5)}}
 
@@ -74,20 +92,31 @@
   .calc-val.cy{color:var(--cyan);}
   .calc-val.dm{color:var(--dim);font-size:12px;}
 
-  /* Trend */
-  .trend-box{background:var(--surface2);border:1px solid var(--border);padding:10px 12px;}
-  .trend-bars{display:flex;align-items:flex-end;gap:3px;height:32px;margin:6px 0 4px;}
+  /* ── TRENDS SCREEN ── */
+  #screen-trends{overflow-y:auto;padding:14px 12px;gap:12px;}
+
+  .trend-box{background:var(--surface2);border:1px solid var(--border);padding:10px 12px;flex-shrink:0;}
+  .trend-bars{display:flex;align-items:flex-end;gap:3px;height:48px;margin:6px 0 4px;}
   .trend-bar-col{flex:1;border-radius:1px;min-height:3px;}
   .trend-status{font-family:var(--cond);font-weight:700;font-size:12px;letter-spacing:2px;}
   .approaching{color:var(--red);}
   .receding{color:#30a860;}
 
   /* Log */
-  .log-header{display:flex;justify-content:space-between;align-items:center;}
+  .log-header{display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
   .log-count{font-family:var(--mono);font-size:10px;color:var(--cyan);}
-  .clear-btn{font-family:var(--mono);font-size:9px;color:var(--dim);background:none;border:1px solid var(--border);padding:2px 7px;cursor:pointer;}
+  .clear-all-btn{
+    font-family:var(--mono);font-size:9px;color:var(--red);background:none;
+    border:1px solid rgba(224,48,48,.3);padding:3px 9px;cursor:pointer;
+    letter-spacing:1px;transition:all .15s;
+  }
+  .clear-all-btn:hover{border-color:var(--red);background:rgba(224,48,48,.08);}
   .strike-log{display:flex;flex-direction:column;gap:5px;}
-  .s-entry{border-left:3px solid;padding:8px 10px;background:var(--surface2);display:grid;grid-template-columns:1fr auto;gap:2px;animation:slidein .25s ease;}
+  .s-entry{
+    border-left:3px solid;padding:8px 10px;background:var(--surface2);
+    display:grid;grid-template-columns:1fr auto auto;gap:4px;align-items:center;
+    animation:slidein .25s ease;
+  }
   @keyframes slidein{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:none}}
   .s-entry.recent{border-color:var(--yellow);}
   .s-entry.mid{border-color:var(--orange);}
@@ -102,6 +131,12 @@
   .s-bearing.mid{color:var(--orange);}
   .s-bearing.old{color:var(--dim);}
   .s-time{font-family:var(--mono);font-size:9px;color:var(--dim);text-align:right;}
+  .s-delete{
+    background:none;border:none;cursor:pointer;
+    font-family:var(--mono);font-size:13px;color:var(--dim);
+    padding:4px 6px;line-height:1;transition:color .15s;align-self:center;
+  }
+  .s-delete:hover{color:var(--red);}
 
   /* ── MAP SCREEN ── */
   #screen-map{position:relative;}
@@ -115,24 +150,11 @@
   .mc-sep{width:1px;height:16px;background:var(--border);}
   .mc-label{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:1px;}
 
-  /* Map container */
   .map-wrap{position:relative;flex:1;overflow:hidden;}
 
-  .map-img{
-    display:block;width:100%;height:100%;
-    object-fit:cover;object-position:center;
-    filter:saturate(0.55) brightness(0.75);
-  }
-
-  .map-svg{
-    position:absolute;inset:0;width:100%;height:100%;
-    overflow:visible;
-  }
-
-  /* Bottom strip */
   .map-strip{
-    height:52px;display:flex;align-items:center;gap:16px;padding:0 14px;
-    border-top:1px solid var(--border);background:var(--surface);z-index:100;flex-shrink:0;flex-wrap:wrap;overflow:hidden;
+    height:52px;display:flex;align-items:center;gap:14px;padding:0 12px;
+    border-top:1px solid var(--border);background:var(--surface);z-index:100;flex-shrink:0;overflow:hidden;
   }
   .ms{display:flex;flex-direction:column;gap:1px;}
   .ms-key{font-family:var(--mono);font-size:8px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;}
@@ -140,50 +162,45 @@
   .ms-val.cy{color:var(--cyan);}
   .ms-val.rd{color:var(--red);}
   .ms-val.gn{color:#30a860;}
-  .approach-alert{margin-left:auto;background:rgba(224,48,48,.12);border:1px solid var(--red);padding:4px 12px;display:flex;align-items:center;gap:6px;}
+  .approach-alert{margin-left:auto;background:rgba(224,48,48,.12);border:1px solid var(--red);padding:4px 10px;display:flex;align-items:center;gap:6px;flex-shrink:0;}
   .alert-icon{animation:blink 1s ease-in-out infinite;}
   .alert-txt{font-family:var(--cond);font-weight:700;font-size:12px;letter-spacing:2px;color:var(--red);text-transform:uppercase;}
 
-  /* Legend */
+  /* Legend — collapsible */
   .map-legend{
     position:absolute;bottom:60px;right:12px;
-    background:rgba(8,12,16,.88);border:1px solid var(--border);
-    padding:8px 12px;z-index:50;backdrop-filter:blur(4px);
-    display:flex;flex-direction:column;gap:5px;
+    background:rgba(8,12,16,.92);border:1px solid var(--border);
+    z-index:50;backdrop-filter:blur(4px);
   }
+  .legend-toggle-btn{
+    font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:2px;
+    padding:6px 10px;cursor:pointer;display:flex;align-items:center;gap:5px;
+    text-transform:uppercase;white-space:nowrap;background:none;border:none;width:100%;
+  }
+  .legend-toggle-btn:hover{color:var(--cyan);}
+  .legend-body{display:flex;flex-direction:column;gap:5px;padding:0 10px 8px;}
+  .legend-body.hidden{display:none;}
   .leg-row{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:1px;}
   .leg-sw{width:20px;height:3px;border-radius:1px;}
 
-  /* Leaflet map */
   #map{width:100%;height:100%;}
-  .leaflet-control-attribution{
-    background:rgba(8,12,16,.7)!important;color:var(--dim)!important;
-    font-family:var(--mono);font-size:7px!important;border-top:1px solid var(--border)!important;
-  }
+  .leaflet-control-attribution{background:rgba(8,12,16,.7)!important;color:var(--dim)!important;font-family:var(--mono);font-size:7px!important;}
   .leaflet-control-attribution a{color:var(--dim)!important;}
 
-  /* Geo status overlay */
   #geo-status{
     position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
     background:rgba(8,12,16,.9);border:1px solid var(--border);
     padding:12px 20px;font-family:var(--mono);font-size:11px;color:var(--dim);
-    letter-spacing:2px;text-align:center;z-index:500;pointer-events:none;
-    text-transform:uppercase;
+    letter-spacing:2px;text-align:center;z-index:500;pointer-events:none;text-transform:uppercase;
   }
   #geo-status.hidden{display:none;}
 
-  /* Distant strike notice */
   #distant-notice{
     position:absolute;top:8px;left:50%;transform:translateX(-50%);
     background:rgba(74,122,170,.15);border:1px solid var(--old);
     padding:5px 14px;font-family:var(--mono);font-size:9px;color:var(--old);
     letter-spacing:2px;text-align:center;z-index:200;pointer-events:none;
     text-transform:uppercase;white-space:nowrap;
-  }
-
-  @media(max-width:520px){
-    #screen-record{flex-direction:column;}
-    .panel-l{width:100%;border-right:none;border-bottom:1px solid var(--border);}
   }
 </style>
 </head>
@@ -193,111 +210,93 @@
   <div class="logo">STRIKE<span>MAP</span></div>
   <nav class="nav">
     <button class="nav-btn active" id="tab-record" onclick="showScreen('record')">RECORD</button>
+    <button class="nav-btn" id="tab-trends" onclick="showScreen('trends')">TRENDS</button>
     <button class="nav-btn" id="tab-map" onclick="showScreen('map')">MAP</button>
   </nav>
-  <div class="live-badge"><span class="live-dot"></span><span id="obs-badge">6 OBS</span></div>
+  <div class="live-badge"><span class="live-dot"></span><span id="obs-badge">0 OBS</span></div>
 </header>
 
-<!-- ══ RECORD ══ -->
+<!-- ══ RECORD — single full-width column ══ -->
 <section class="screen active" id="screen-record">
-  <div class="panel-l">
-    <div class="compass-wrap">
-      <div class="sec-label">BEARING</div>
-      <button class="compass-ring" id="compass-tap-btn" onclick="onCompassTap()" style="background:none;border:none;cursor:pointer;padding:0;position:relative;width:150px;height:150px;">
-        <svg viewBox="0 0 150 150" style="width:100%;height:100%;">
-          <!-- Static outer ring -->
-          <circle cx="75" cy="75" r="70" fill="none" stroke="#1e2d38" stroke-width="1.5"/>
-          <!-- Rotating bezel group — rotated by JS -->
-          <g id="compass-bezel">
-            <!-- Tick marks -->
-            <line x1="75" y1="7"  x2="75" y2="16" stroke="#2a3d4a" stroke-width="1"/>
-            <line x1="75" y1="134" x2="75" y2="143" stroke="#2a3d4a" stroke-width="1"/>
-            <line x1="7"  y1="75" x2="16" y2="75" stroke="#2a3d4a" stroke-width="1"/>
-            <line x1="134" y1="75" x2="143" y2="75" stroke="#2a3d4a" stroke-width="1"/>
-            <!-- Cardinals — positioned at fixed angles on the bezel -->
-            <text x="75"  y="24"  text-anchor="middle" fill="#e03030" font-family="'Share Tech Mono'" font-size="10" font-weight="bold">N</text>
-            <text x="75"  y="143" text-anchor="middle" fill="#5a7a8a" font-family="'Share Tech Mono'" font-size="9">S</text>
-            <text x="14"  y="79"  text-anchor="middle" fill="#5a7a8a" font-family="'Share Tech Mono'" font-size="9">W</text>
-            <text x="136" y="79"  text-anchor="middle" fill="#5a7a8a" font-family="'Share Tech Mono'" font-size="9">E</text>
-          </g>
-          <!-- Fixed lubber line at top = phone's forward direction -->
-          <line x1="75" y1="5" x2="75" y2="20" stroke="#f5c842" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
-        </svg>
-        <div class="compass-center">
-          <div class="compass-deg" id="compass-deg-el">---</div>
-          <div class="compass-card" id="compass-card-el">NO COMPASS</div>
-        </div>
-      </button>
-      <div class="sec-label" id="compass-hint" style="text-align:center;font-size:8px;">tap SAW FLASH, point at lightning, tap compass to lock</div>
+
+  <div class="compass-wrap" id="compass-section">
+    <div class="sec-label">BEARING — POINT PHONE AT FLASH</div>
+    <button class="compass-ring-btn" id="compass-tap-btn" onclick="onCompassTap()">
+      <svg viewBox="0 0 150 150">
+        <circle cx="75" cy="75" r="70" fill="none" stroke="#1e2d38" stroke-width="1.5"/>
+        <g id="compass-bezel">
+          <line x1="75" y1="7"  x2="75" y2="16" stroke="#2a3d4a" stroke-width="1"/>
+          <line x1="75" y1="134" x2="75" y2="143" stroke="#2a3d4a" stroke-width="1"/>
+          <line x1="7"  y1="75" x2="16" y2="75" stroke="#2a3d4a" stroke-width="1"/>
+          <line x1="134" y1="75" x2="143" y2="75" stroke="#2a3d4a" stroke-width="1"/>
+          <text x="75"  y="24"  text-anchor="middle" fill="#e03030" font-family="'Share Tech Mono'" font-size="10" font-weight="bold">N</text>
+          <text x="75"  y="143" text-anchor="middle" fill="#5a7a8a" font-family="'Share Tech Mono'" font-size="9">S</text>
+          <text x="14"  y="79"  text-anchor="middle" fill="#5a7a8a" font-family="'Share Tech Mono'" font-size="9">W</text>
+          <text x="136" y="79"  text-anchor="middle" fill="#5a7a8a" font-family="'Share Tech Mono'" font-size="9">E</text>
+        </g>
+        <line x1="75" y1="5" x2="75" y2="20" stroke="#f5c842" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+      </svg>
+      <div class="compass-center">
+        <div class="compass-deg" id="compass-deg-el">---</div>
+        <div class="compass-card" id="compass-card-el">NO COMPASS</div>
+      </div>
+    </button>
+    <div class="sec-label" id="compass-hint" style="text-align:center;font-size:8px;">tap SAW FLASH, point at lightning, tap compass to lock</div>
+  </div>
+
+  <div id="couch-status-label" class="couch-status-label" style="display:none;">◎ COUCH MODE — NO BEARING</div>
+
+  <button class="couch-toggle" id="couch-btn" onclick="toggleCouchMode()">
+    <div>
+      <div class="couch-label-txt">Couch Mode</div>
+      <div class="couch-sub">No bearing recorded — distance only</div>
     </div>
+    <div class="couch-pip"></div>
+  </button>
 
-    <button class="big-btn btn-flash" onclick="mockFlash(this)">
-      ⚡ SAW FLASH
-      <span class="sub">tap immediately on lightning</span>
-    </button>
-    <button class="big-btn btn-thunder armed" id="btn-thunder" onclick="mockThunder(this)">
-      ◎ HEARD THUNDER
-      <span class="sub" id="thunder-sub">waiting for thunder...</span>
-    </button>
+  <button class="big-btn btn-flash" onclick="onFlash(this)">
+    ⚡ SAW FLASH
+    <span class="sub">tap immediately on lightning</span>
+  </button>
 
-    <div class="calc-box">
-      <div class="sec-label">LIVE CALCULATION</div>
-      <div class="calc-timer" id="live-timer">2.3s</div>
-      <div class="calc-row"><span class="calc-key">DELAY</span><span class="calc-val" id="c-delay">2.3s</span></div>
-      <div class="calc-row"><span class="calc-key">DISTANCE</span><span class="calc-val cy" id="c-dist">1.4 mi</span></div>
-      <div class="calc-row"><span class="calc-key">BEARING</span><span class="calc-val dm">043° NNE</span></div>
+  <button class="big-btn btn-thunder" id="btn-thunder" onclick="onThunder(this)">
+    ◎ HEARD THUNDER
+    <span class="sub" id="thunder-sub">press Flash first</span>
+  </button>
+
+  <div class="calc-box">
+    <div class="sec-label">LIVE CALCULATION</div>
+    <div class="calc-timer" id="live-timer">—</div>
+    <div class="calc-row"><span class="calc-key">DELAY</span><span class="calc-val" id="c-delay">—</span></div>
+    <div class="calc-row"><span class="calc-key">DISTANCE</span><span class="calc-val cy" id="c-dist">—</span></div>
+    <div class="calc-row"><span class="calc-key">BEARING</span><span class="calc-val dm" id="c-bearing">—</span></div>
+  </div>
+
+</section>
+
+<!-- ══ TRENDS ══ -->
+<section class="screen" id="screen-trends">
+
+  <div class="trend-box">
+    <div class="sec-label">DISTANCE TREND</div>
+    <div class="trend-bars" id="trend-bars">
+      <div style="font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:2px;align-self:center;width:100%;text-align:center;">NO DATA</div>
+    </div>
+    <div class="trend-status" id="trend-status">— NEED MORE DATA</div>
+  </div>
+
+  <div class="log-header">
+    <div class="sec-label" style="margin-bottom:0;">LOG</div>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <span class="log-count" id="log-count">0 STRIKES</span>
+      <button class="clear-all-btn" id="clear-all-btn">CLEAR ALL</button>
     </div>
   </div>
 
-  <div class="panel-r">
-    <div class="trend-box">
-      <div class="sec-label">DISTANCE TREND</div>
-      <div class="trend-bars">
-        <div class="trend-bar-col" style="height:60%;background:#4a7aaa;opacity:.6"></div>
-        <div class="trend-bar-col" style="height:52%;background:#4a7aaa;opacity:.7"></div>
-        <div class="trend-bar-col" style="height:66%;background:#f08030;opacity:.7"></div>
-        <div class="trend-bar-col" style="height:50%;background:#f08030;opacity:.8"></div>
-        <div class="trend-bar-col" style="height:39%;background:#e03030;opacity:.85"></div>
-        <div class="trend-bar-col" style="height:32%;background:#e03030;opacity:1"></div>
-      </div>
-      <div class="trend-status approaching">▼ APPROACHING · 0.28 mi closer/strike</div>
-    </div>
-
-    <div class="log-header">
-      <div class="sec-label">LOG</div>
-      <div style="display:flex;gap:6px;align-items:center">
-        <span class="log-count">6 STRIKES</span>
-        <button class="clear-btn">CLEAR</button>
-      </div>
-    </div>
-
-    <div class="strike-log">
-      <div class="s-entry recent">
-        <div><div class="s-dist recent">1.4 mi</div><div class="s-meta">2.3s · 043° NNE</div></div>
-        <div><div class="s-bearing recent">NNE</div><div class="s-time">0:52 ago</div></div>
-      </div>
-      <div class="s-entry recent">
-        <div><div class="s-dist recent">1.7 mi</div><div class="s-meta">2.8s · 038° NNE</div></div>
-        <div><div class="s-bearing recent">NNE</div><div class="s-time">3:10 ago</div></div>
-      </div>
-      <div class="s-entry mid">
-        <div><div class="s-dist mid">2.1 mi</div><div class="s-meta">3.4s · 055° NE</div></div>
-        <div><div class="s-bearing mid">NE</div><div class="s-time">6:44 ago</div></div>
-      </div>
-      <div class="s-entry mid">
-        <div><div class="s-dist mid">2.4 mi</div><div class="s-meta">3.9s · 061° ENE</div></div>
-        <div><div class="s-bearing mid">ENE</div><div class="s-time">10:20 ago</div></div>
-      </div>
-      <div class="s-entry old">
-        <div><div class="s-dist old">2.8 mi</div><div class="s-meta">4.5s · 072° ENE</div></div>
-        <div><div class="s-bearing old">ENE</div><div class="s-time">16:01 ago</div></div>
-      </div>
-      <div class="s-entry old">
-        <div><div class="s-dist old">3.1 mi</div><div class="s-meta">5.0s · 078° E</div></div>
-        <div><div class="s-bearing old">E</div><div class="s-time">21:33 ago</div></div>
-      </div>
-    </div>
+  <div class="strike-log" id="strike-log">
+    <div style="font-family:var(--mono);font-size:9px;color:var(--dim);padding:12px 0;text-align:center;letter-spacing:2px;">NO STRIKES YET</div>
   </div>
+
 </section>
 
 <!-- ══ MAP ══ -->
@@ -308,7 +307,7 @@
     <button class="mc-btn" data-age="10">10 MIN</button>
     <button class="mc-btn" data-age="30">30 MIN</button>
     <div class="mc-sep"></div>
-    <button class="mc-btn">⊕ CENTER</button>
+    <button class="mc-btn" id="recenter-btn">⊕ CENTER</button>
   </div>
 
   <div class="map-wrap">
@@ -316,25 +315,29 @@
     <div id="geo-status">ACQUIRING LOCATION…</div>
     <div id="distant-notice" style="display:none;"></div>
 
-    <!-- Legend -->
     <div class="map-legend">
-      <div class="leg-row"><div class="leg-sw" style="background:var(--yellow)"></div>RECENT &lt;5 MIN</div>
-      <div class="leg-row"><div class="leg-sw" style="background:var(--orange)"></div>MID 5–15 MIN</div>
-      <div class="leg-row"><div class="leg-sw" style="background:var(--old)"></div>OLD &gt;15 MIN</div>
-      <div style="font-family:var(--mono);font-size:8px;color:var(--dim);margin-top:4px;border-top:1px solid var(--border);padding-top:4px;line-height:1.6;">
-        WEDGE WIDTH = ±5° BEARING ERROR<br>
-        ARC DEPTH = ±500ms TIMING ERROR<br>
-        WEDGE FANS OUT WITH DISTANCE
+      <button class="legend-toggle-btn" onclick="toggleLegend()">
+        <span id="legend-icon">▸</span> LEGEND
+      </button>
+      <div class="legend-body hidden" id="legend-body">
+        <div class="leg-row"><div class="leg-sw" style="background:var(--yellow)"></div>RECENT &lt;5 MIN</div>
+        <div class="leg-row"><div class="leg-sw" style="background:var(--orange)"></div>MID 5–15 MIN</div>
+        <div class="leg-row"><div class="leg-sw" style="background:var(--old)"></div>OLD &gt;15 MIN</div>
+        <div style="font-family:var(--mono);font-size:8px;color:var(--dim);margin-top:4px;border-top:1px solid var(--border);padding-top:4px;line-height:1.6;">
+          WEDGE = ±5° BEARING ERROR<br>
+          ARC = ±500ms TIMING ERROR<br>
+          RING = NO BEARING (COUCH MODE)
+        </div>
       </div>
     </div>
   </div>
 
   <div class="map-strip">
-    <div class="ms"><span class="ms-key">OBS</span><span class="ms-val">6</span></div>
-    <div class="ms"><span class="ms-key">CLOSEST</span><span class="ms-val">1.4 mi</span></div>
-    <div class="ms"><span class="ms-key">DIRECTION</span><span class="ms-val cy">NNE</span></div>
-    <div class="ms"><span class="ms-key">TREND</span><span class="ms-val rd">▼ CLOSER</span></div>
-    <div class="approach-alert" style="display:none;">
+    <div class="ms"><span class="ms-key">OBS</span><span class="ms-val" id="strip-obs">—</span></div>
+    <div class="ms"><span class="ms-key">CLOSEST</span><span class="ms-val" id="strip-closest">—</span></div>
+    <div class="ms"><span class="ms-key">DIRECTION</span><span class="ms-val cy" id="strip-dir">—</span></div>
+    <div class="ms"><span class="ms-key">TREND</span><span class="ms-val" id="strip-trend">—</span></div>
+    <div class="approach-alert" id="approach-alert" style="display:none;">
       <span class="alert-icon">⚡</span>
       <span class="alert-txt">APPROACHING</span>
     </div>
@@ -343,7 +346,7 @@
 
 <script>
 // ═══════════════════════════════════════════════════════════════════════════
-// STRIKEMAP — Session 3: Age filter fix, DISTANT notice, approach alert, fetchExternalStrikes stub
+// STRIKEMAP — Session 4
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── SCREEN NAV ──────────────────────────────────────────────────────────────
@@ -352,277 +355,209 @@ function showScreen(name){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('screen-'+name).classList.add('active');
   document.getElementById('tab-'+name).classList.add('active');
-  if(name==='map' && window.sm_map) window.sm_map.invalidateSize();
-  if(name==='map') renderMapStrikes();
+  if(name==='map'){
+    if(window.sm_map) window.sm_map.invalidateSize();
+    renderMapStrikes();
+  }
+  if(name==='trends') renderLog();
 }
 
-// ── CONSTANTS ───────────────────────────────────────────────────────────────
-const SOUND_MPS = 343;           // m/s
-const MI_PER_M  = 0.000621371;
-const MAX_DIST_MI = 6.2;         // beyond this → DISTANT, no ellipse
-const LS_KEY = 'sm_strikes';
+// ── CONSTANTS ────────────────────────────────────────────────────────────────
+const SOUND_MPS   = 343;
+const MI_PER_M    = 0.000621371;
+const MAX_DIST_MI = 6.2;
+const LS_KEY      = 'sm_strikes';
 
-// ── EXTERNAL STRIKES STUB ─────────────────────────────────────────────────────
-// Deferred: hook for Blitzortung or other external data source. Returns [] for now.
+// ── EXTERNAL STRIKES STUB ────────────────────────────────────────────────────
 async function fetchExternalStrikes(){ return []; }
 
-// ── STORAGE ─────────────────────────────────────────────────────────────────
+// ── STORAGE ──────────────────────────────────────────────────────────────────
 function loadStrikes(){
-  try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; }
+  try { return JSON.parse(localStorage.getItem(LS_KEY))||[]; }
   catch(e){ return []; }
 }
-function saveStrikes(arr){
-  localStorage.setItem(LS_KEY, JSON.stringify(arr));
-}
-function addStrike(strike){
-  const arr = loadStrikes();
-  arr.unshift(strike); // newest first
-  saveStrikes(arr);
-}
-function clearStrikes(){
-  localStorage.removeItem(LS_KEY);
-}
+function saveStrikes(arr){ localStorage.setItem(LS_KEY,JSON.stringify(arr)); }
+function addStrike(s){ const a=loadStrikes(); a.unshift(s); saveStrikes(a); }
+function clearStrikes(){ localStorage.removeItem(LS_KEY); }
+function deleteStrike(ts){ saveStrikes(loadStrikes().filter(s=>s.ts!==ts)); }
 
-// ── CARDINAL DIRECTION ───────────────────────────────────────────────────────
+// ── CARDINAL ──────────────────────────────────────────────────────────────────
 function toCardinal(deg){
-  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
-  return dirs[Math.round(deg/22.5) % 16];
+  return ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'][Math.round(deg/22.5)%16];
 }
 
-// ── AGE CLASS ───────────────────────────────────────────────────────────────
+// ── AGE ───────────────────────────────────────────────────────────────────────
 function ageClass(ts){
-  const ago = (Date.now()-ts)/1000/60; // minutes
-  if(ago < 5)  return 'recent';
-  if(ago < 15) return 'mid';
-  return 'old';
+  const m=(Date.now()-ts)/60000;
+  return m<5?'recent':m<15?'mid':'old';
 }
 
-// ── RELATIVE TIME ────────────────────────────────────────────────────────────
+// ── RELATIVE TIME ─────────────────────────────────────────────────────────────
 function relTime(ts){
-  const s = Math.round((Date.now()-ts)/1000);
-  if(s < 60) return `0:${String(s).padStart(2,'0')} ago`;
-  const m = Math.floor(s/60), r = s%60;
-  return `${m}:${String(r).padStart(2,'0')} ago`;
+  const s=Math.round((Date.now()-ts)/1000);
+  if(s<60) return `0:${String(s).padStart(2,'0')} ago`;
+  return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')} ago`;
 }
 
-// ── COMPASS STATE ────────────────────────────────────────────────────────────
-let liveHeading   = null;   // current smoothed live reading
-let lockedHeading = null;   // set when user taps compass; null = unlocked
-let compassEnabled = false;
-let compassPermissionAsked = false;
-let bearingArmed = false;   // true after FLASH tap, waiting for compass lock
+// ── COUCH MODE ────────────────────────────────────────────────────────────────
+let couchMode=false;
+function toggleCouchMode(){
+  couchMode=!couchMode;
+  document.getElementById('couch-btn').classList.toggle('active',couchMode);
+  document.getElementById('compass-section').style.display=couchMode?'none':'flex';
+  document.getElementById('couch-status-label').style.display=couchMode?'block':'none';
+  if(!couchMode) updateCompassDisplay();
+}
 
-const HEADING_BUF = 8;
-const headingBuf = [];
+// ── COMPASS STATE ─────────────────────────────────────────────────────────────
+let liveHeading=null,lockedHeading=null,compassEnabled=false,compassPermissionAsked=false,bearingArmed=false;
+const headingBuf=[];
 
 function pushHeading(h){
   headingBuf.push(h);
-  if(headingBuf.length > HEADING_BUF) headingBuf.shift();
-  let sinSum=0, cosSum=0;
-  headingBuf.forEach(a=>{ sinSum+=Math.sin(a*Math.PI/180); cosSum+=Math.cos(a*Math.PI/180); });
-  liveHeading = (Math.atan2(sinSum, cosSum)*180/Math.PI + 360) % 360;
+  if(headingBuf.length>8) headingBuf.shift();
+  let s=0,c=0;
+  headingBuf.forEach(a=>{s+=Math.sin(a*Math.PI/180);c+=Math.cos(a*Math.PI/180);});
+  liveHeading=(Math.atan2(s,c)*180/Math.PI+360)%360;
 }
 
 function updateCompassDisplay(){
-  const degEl  = document.getElementById('compass-deg-el');
-  const cardEl = document.getElementById('compass-card-el');
-  const bezel  = document.getElementById('compass-bezel');
-  const hint   = document.getElementById('compass-hint');
-  const ring   = document.getElementById('compass-tap-btn');
+  if(couchMode) return;
+  const degEl=document.getElementById('compass-deg-el');
+  const cardEl=document.getElementById('compass-card-el');
+  const bezel=document.getElementById('compass-bezel');
+  const hint=document.getElementById('compass-hint');
+  const ring=document.getElementById('compass-tap-btn');
+  const deg=lockedHeading!==null?lockedHeading:liveHeading;
 
-  const deg = lockedHeading !== null ? lockedHeading : liveHeading;
+  if(bezel&&deg!==null) bezel.setAttribute('transform',`rotate(${-deg},75,75)`);
 
-  // Rotate bezel: bezel rotates OPPOSITE to heading so N stays pointing north
-  if(bezel && deg !== null) bezel.setAttribute('transform', `rotate(${-deg},75,75)`);
-
-  if(lockedHeading !== null){
-    const d = Math.round(lockedHeading);
-    degEl.textContent  = String(d).padStart(3,'0')+'°';
-    degEl.style.color  = '#30a860';
-    cardEl.textContent = '✓ '+toCardinal(d);
-    cardEl.style.color = '#30a860';
-    if(hint) hint.textContent = 'tap compass to unlock';
-    if(ring) ring.style.boxShadow = '0 0 16px rgba(48,168,96,.4)';
+  if(lockedHeading!==null){
+    const d=Math.round(lockedHeading);
+    degEl.textContent=String(d).padStart(3,'0')+'°'; degEl.style.color='#30a860';
+    cardEl.textContent='✓ '+toCardinal(d); cardEl.style.color='#30a860';
+    hint.textContent='tap compass to unlock';
+    ring.style.boxShadow='0 0 16px rgba(48,168,96,.4)';
   } else if(bearingArmed){
-    const d = liveHeading !== null ? Math.round(liveHeading) : null;
-    degEl.textContent  = d !== null ? String(d).padStart(3,'0')+'°' : '---';
-    degEl.style.color  = '#f5c842';
-    cardEl.textContent = d !== null ? toCardinal(d) : '---';
-    cardEl.style.color = '#f5c842';
-    if(hint) hint.textContent = 'point at lightning → tap compass to lock';
-    if(ring) ring.style.boxShadow = '0 0 16px rgba(245,200,66,.3)';
+    const d=liveHeading!==null?Math.round(liveHeading):null;
+    degEl.textContent=d!==null?String(d).padStart(3,'0')+'°':'---'; degEl.style.color='#f5c842';
+    cardEl.textContent=d!==null?toCardinal(d):'---'; cardEl.style.color='#f5c842';
+    hint.textContent='point at lightning → tap compass to lock';
+    ring.style.boxShadow='0 0 16px rgba(245,200,66,.3)';
   } else {
-    const d = liveHeading !== null ? Math.round(liveHeading) : null;
-    degEl.textContent  = d !== null ? String(d).padStart(3,'0')+'°' : '---';
-    degEl.style.color  = '';
-    cardEl.textContent = d !== null ? toCardinal(d) : (compassEnabled ? '---' : 'NO COMPASS');
-    cardEl.style.color = '';
-    if(hint) hint.textContent = 'tap SAW FLASH, point at lightning, tap compass to lock';
-    if(ring) ring.style.boxShadow = '';
+    const d=liveHeading!==null?Math.round(liveHeading):null;
+    degEl.textContent=d!==null?String(d).padStart(3,'0')+'°':'---'; degEl.style.color='';
+    cardEl.textContent=d!==null?toCardinal(d):(compassEnabled?'---':'NO COMPASS'); cardEl.style.color='';
+    hint.textContent='tap SAW FLASH, point at lightning, tap compass to lock';
+    ring.style.boxShadow='';
   }
 }
 
-// Called when user taps the compass ring
 function onCompassTap(){
-  if(!bearingArmed && lockedHeading === null) return; // idle, ignore
-  if(lockedHeading !== null){
-    // Already locked — tap again to unlock (re-arm)
-    lockedHeading = null;
-    updateCompassDisplay();
-    return;
-  }
-  // Lock current live heading
-  lockedHeading = liveHeading;
+  if(!bearingArmed&&lockedHeading===null) return;
+  if(lockedHeading!==null){ lockedHeading=null; updateCompassDisplay(); return; }
+  lockedHeading=liveHeading;
   updateCompassDisplay();
 }
 
 function onDeviceOrientation(e){
-  let h = null;
-  if(typeof e.webkitCompassHeading === 'number'){
-    h = e.webkitCompassHeading;
-  } else if(e.absolute && typeof e.alpha === 'number'){
-    h = (360 - e.alpha) % 360;
-  } else if(typeof e.alpha === 'number'){
-    h = (360 - e.alpha) % 360;
-  }
-  if(h === null) return;
+  let h=null;
+  if(typeof e.webkitCompassHeading==='number') h=e.webkitCompassHeading;
+  else if(e.absolute&&typeof e.alpha==='number') h=(360-e.alpha)%360;
+  else if(typeof e.alpha==='number') h=(360-e.alpha)%360;
+  if(h===null) return;
   pushHeading(h);
-  if(lockedHeading === null) updateCompassDisplay(); // don't update display while locked
+  if(lockedHeading===null) updateCompassDisplay();
 }
 
 function startCompass(){
-  window.addEventListener('deviceorientation', onDeviceOrientation, true);
-  compassEnabled = true;
-  console.log('[strikemap] Compass listener attached');
+  window.addEventListener('deviceorientation',onDeviceOrientation,true);
+  compassEnabled=true;
 }
 
 async function requestCompassPermission(){
   if(compassPermissionAsked) return;
-  compassPermissionAsked = true;
-  if(typeof DeviceOrientationEvent !== 'undefined' &&
-     typeof DeviceOrientationEvent.requestPermission === 'function'){
-    // iOS 13+
-    try {
-      const perm = await DeviceOrientationEvent.requestPermission();
-      if(perm === 'granted') startCompass();
-      else console.warn('[strikemap] Compass permission denied');
-    } catch(err){
-      console.warn('[strikemap] Compass permission error:', err);
-      startCompass(); // try anyway
-    }
-  } else {
-    // Non-iOS — just start
-    startCompass();
-  }
+  compassPermissionAsked=true;
+  if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
+    try{ const p=await DeviceOrientationEvent.requestPermission(); if(p==='granted') startCompass(); }
+    catch(e){ startCompass(); }
+  } else { startCompass(); }
 }
 
-// ── COMPASS SVG — replace static needle with a dynamic one ──────────────────
-// We'll patch the SVG needle to have id="compass-needle" and a transform group
-document.addEventListener('DOMContentLoaded', ()=>{
-  renderLog();
-  updateObsBadge();
-  updateCompassDisplay();
-});
+// ── FLASH / THUNDER ───────────────────────────────────────────────────────────
+let flashTime=null,timerTick=null,flashArmed=false;
 
-// ── FLASH / THUNDER STATE ────────────────────────────────────────────────────
-let flashTime   = null;
-let timerTick   = null;
-let flashArmed  = false;  // true after FLASH tapped, waiting for THUNDER
-
-// FLASH tap
 function onFlash(btn){
-  if(!compassPermissionAsked) requestCompassPermission();
+  if(!couchMode&&!compassPermissionAsked) requestCompassPermission();
+  flashTime=Date.now(); flashArmed=true;
+  if(!couchMode){ bearingArmed=true; lockedHeading=null; updateCompassDisplay(); }
 
-  flashTime  = Date.now();
-  flashArmed = true;
-  bearingArmed = true;
-  lockedHeading = null; // ensure unlocked so compass goes live
-
-  const thunderBtn = document.getElementById('btn-thunder');
-  thunderBtn.classList.add('armed');
-  document.getElementById('thunder-sub').textContent = 'tap when you hear it...';
-  btn.style.boxShadow = '0 0 60px rgba(245,200,66,.7)';
-  setTimeout(()=>btn.style.boxShadow='', 400);
-
-  updateCompassDisplay();
+  const tb=document.getElementById('btn-thunder');
+  tb.classList.add('armed');
+  document.getElementById('thunder-sub').textContent='tap when you hear it...';
+  btn.style.boxShadow='0 0 60px rgba(245,200,66,.7)';
+  setTimeout(()=>btn.style.boxShadow='',400);
 
   if(timerTick) clearInterval(timerTick);
-  timerTick = setInterval(()=>{
+  timerTick=setInterval(()=>{
     if(!flashTime){ clearInterval(timerTick); return; }
-    document.getElementById('live-timer').textContent = ((Date.now()-flashTime)/1000).toFixed(1)+'s';
-    const bear = lockedHeading !== null ? Math.round(lockedHeading) : null;
-    if(document.getElementById('c-bearing')){
-      document.getElementById('c-bearing').textContent =
-        bear !== null ? `${String(bear).padStart(3,'0')}° ${toCardinal(bear)}` : '--- POINT & TAP';
+    document.getElementById('live-timer').textContent=((Date.now()-flashTime)/1000).toFixed(1)+'s';
+    if(!couchMode){
+      const bear=lockedHeading!==null?Math.round(lockedHeading):null;
+      document.getElementById('c-bearing').textContent=
+        bear!==null?`${String(bear).padStart(3,'0')}° ${toCardinal(bear)}`:'— POINT & TAP';
     }
-  }, 100);
+  },100);
 }
 
-// THUNDER tap
 function onThunder(btn){
-  if(!flashArmed || !flashTime) return;
-
+  if(!flashArmed||!flashTime) return;
   clearInterval(timerTick);
-  const delay  = (Date.now()-flashTime)/1000;
-  const distMi = delay * SOUND_MPS * MI_PER_M;
+  const delay=(Date.now()-flashTime)/1000;
+  const distMi=delay*SOUND_MPS*MI_PER_M;
+  const bear=couchMode?null:(lockedHeading!==null?Math.round(lockedHeading):null);
 
-  // Capture bearing BEFORE clearing state
-  const bear = lockedHeading !== null ? Math.round(lockedHeading) : null;
+  flashArmed=false; bearingArmed=false; flashTime=null; lockedHeading=null;
 
-  // Reset state
-  flashArmed   = false;
-  bearingArmed = false;
-  flashTime    = null;
-  lockedHeading = null;
+  document.getElementById('live-timer').textContent=delay.toFixed(1)+'s';
+  document.getElementById('c-delay').textContent=delay.toFixed(1)+'s';
+  document.getElementById('c-dist').textContent=distMi.toFixed(2)+' mi';
+  document.getElementById('c-bearing').textContent=
+    couchMode?'COUCH MODE':(bear!==null?`${String(bear).padStart(3,'0')}° ${toCardinal(bear)}`:'— NO COMPASS');
 
-  // Update calc display
-  document.getElementById('live-timer').textContent = delay.toFixed(1)+'s';
-  document.getElementById('c-delay').textContent    = delay.toFixed(1)+'s';
-  document.getElementById('c-dist').textContent     = distMi.toFixed(2)+' mi';
-  if(document.getElementById('c-bearing')){
-    document.getElementById('c-bearing').textContent =
-      bear !== null ? `${String(bear).padStart(3,'0')}° ${toCardinal(bear)}` : '--- NO COMPASS';
-  }
-
-  // Button reset
   btn.classList.remove('armed');
-  document.getElementById('thunder-sub').textContent = 'press Flash first';
-  btn.style.boxShadow = '0 0 30px rgba(48,200,224,.5)';
-  setTimeout(()=>btn.style.boxShadow='', 400);
+  document.getElementById('thunder-sub').textContent='press Flash first';
+  btn.style.boxShadow='0 0 30px rgba(48,200,224,.5)';
+  setTimeout(()=>btn.style.boxShadow='',400);
+  if(!couchMode) updateCompassDisplay();
 
-  updateCompassDisplay();
-
-  // Save strike
-  const strike = {
-    ts:     Date.now(),
-    delay:  Math.round(delay*10)/10,
-    distMi: Math.round(distMi*100)/100,
-    bear,
-    card:   bear !== null ? toCardinal(bear) : null,
-  };
-  addStrike(strike);
+  addStrike({
+    ts:Date.now(), delay:Math.round(delay*10)/10,
+    distMi:Math.round(distMi*100)/100,
+    bear, card:bear!==null?toCardinal(bear):null,
+  });
   renderLog();
   updateObsBadge();
 }
 
-// ── LOG RENDERING ────────────────────────────────────────────────────────────
+// ── LOG ───────────────────────────────────────────────────────────────────────
 function renderLog(){
-  const strikes = loadStrikes();
-  const logEl   = document.querySelector('.strike-log');
-  const countEl = document.querySelector('.log-count');
+  const strikes=loadStrikes();
+  const logEl=document.getElementById('strike-log');
+  const countEl=document.getElementById('log-count');
   if(!logEl) return;
 
-  countEl.textContent = strikes.length + ' STRIKE' + (strikes.length!==1?'S':'');
+  countEl.textContent=strikes.length+' STRIKE'+(strikes.length!==1?'S':'');
 
-  if(strikes.length === 0){
-    logEl.innerHTML = `<div style="font-family:var(--mono);font-size:9px;color:var(--dim);padding:12px 0;text-align:center;letter-spacing:2px;">NO STRIKES YET</div>`;
+  if(!strikes.length){
+    logEl.innerHTML='<div style="font-family:var(--mono);font-size:9px;color:var(--dim);padding:12px 0;text-align:center;letter-spacing:2px;">NO STRIKES YET</div>';
+    renderTrend([]);
     return;
   }
 
-  logEl.innerHTML = strikes.map(s=>{
-    const cls   = ageClass(s.ts);
-    const bear  = s.bear !== null ? `${String(s.bear).padStart(3,'0')}° ${s.card}` : '--- NO HDG';
-    const cardDisp = s.card || '---';
+  logEl.innerHTML=strikes.map(s=>{
+    const cls=ageClass(s.ts);
+    const bear=s.bear!==null?`${String(s.bear).padStart(3,'0')}° ${s.card}`:'--- NO HDG';
     return `
       <div class="s-entry ${cls}">
         <div>
@@ -630,376 +565,246 @@ function renderLog(){
           <div class="s-meta">${s.delay.toFixed(1)}s · ${bear}</div>
         </div>
         <div>
-          <div class="s-bearing ${cls}">${cardDisp}</div>
+          <div class="s-bearing ${cls}">${s.card||'---'}</div>
           <div class="s-time">${relTime(s.ts)}</div>
         </div>
+        <button class="s-delete" onclick="deleteSingleStrike(${s.ts})" title="Delete">✕</button>
       </div>`;
   }).join('');
 
   renderTrend(strikes);
 }
 
-// ── TREND ────────────────────────────────────────────────────────────────────
+function deleteSingleStrike(ts){
+  deleteStrike(ts);
+  renderLog();
+  updateObsBadge();
+  if(window.sm_map) renderMapStrikes();
+}
+
+// ── TREND ─────────────────────────────────────────────────────────────────────
 function renderTrend(strikes){
-  const barsEl   = document.querySelector('.trend-bars');
-  const statusEl = document.querySelector('.trend-status');
-  if(!barsEl || !strikes.length) return;
+  const barsEl=document.getElementById('trend-bars');
+  const statusEl=document.getElementById('trend-status');
+  if(!barsEl) return;
 
-  // Use up to 8 most recent strikes (already newest-first)
-  const recent = strikes.slice(0,8).reverse(); // oldest→newest for display
-  const maxDist = Math.max(...recent.map(s=>s.distMi), 0.1);
+  if(!strikes||!strikes.length){
+    barsEl.innerHTML='<div style="font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:2px;align-self:center;width:100%;text-align:center;">NO DATA</div>';
+    if(statusEl){statusEl.className='trend-status';statusEl.textContent='— NEED MORE DATA';}
+    return;
+  }
 
-  // Color per age of each bar
-  barsEl.innerHTML = recent.map(s=>{
-    const cls = ageClass(s.ts);
-    const color = cls==='recent' ? '#f5c842' : cls==='mid' ? '#f08030' : '#4a7aaa';
-    const h = Math.max(8, Math.round((s.distMi/maxDist)*100));
-    return `<div class="trend-bar-col" style="height:${h}%;background:${color};opacity:.85"></div>`;
+  const recent=strikes.slice(0,8).reverse();
+  const maxDist=Math.max(...recent.map(s=>s.distMi),0.1);
+  barsEl.innerHTML=recent.map(s=>{
+    const cls=ageClass(s.ts);
+    const color=cls==='recent'?'#f5c842':cls==='mid'?'#f08030':'#4a7aaa';
+    return `<div class="trend-bar-col" style="height:${Math.max(8,Math.round(s.distMi/maxDist*100))}%;background:${color};opacity:.85"></div>`;
   }).join('');
 
-  // Trend: compare last 2 strikes
-  if(strikes.length >= 2){
-    const delta = strikes[0].distMi - strikes[1].distMi; // newest - prev
-    const absDelta = Math.abs(delta).toFixed(2);
-    if(Math.abs(delta) < 0.05){
-      statusEl.className = 'trend-status';
-      statusEl.textContent = '→ STEADY';
-    } else if(delta < 0){
-      statusEl.className = 'trend-status approaching';
-      statusEl.textContent = `▼ APPROACHING · ${absDelta} mi closer`;
-    } else {
-      statusEl.className = 'trend-status receding';
-      statusEl.textContent = `▲ RECEDING · ${absDelta} mi farther`;
-    }
+  if(strikes.length>=2){
+    const d=strikes[0].distMi-strikes[1].distMi;
+    const abs=Math.abs(d).toFixed(2);
+    if(Math.abs(d)<0.05){ statusEl.className='trend-status'; statusEl.textContent='→ STEADY'; }
+    else if(d<0){ statusEl.className='trend-status approaching'; statusEl.textContent=`▼ APPROACHING · ${abs} mi closer`; }
+    else{ statusEl.className='trend-status receding'; statusEl.textContent=`▲ RECEDING · ${abs} mi farther`; }
   } else {
-    statusEl.className = 'trend-status';
-    statusEl.textContent = '— NEED MORE DATA';
+    statusEl.className='trend-status'; statusEl.textContent='— NEED MORE DATA';
   }
 }
 
-// ── OBS BADGE ────────────────────────────────────────────────────────────────
+// ── OBS BADGE ─────────────────────────────────────────────────────────────────
 function updateObsBadge(){
-  const n = loadStrikes().length;
-  document.getElementById('obs-badge').textContent = n + ' OBS';
+  document.getElementById('obs-badge').textContent=loadStrikes().length+' OBS';
 }
 
-// ── CLEAR ────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', ()=>{
-  document.querySelector('.clear-btn').addEventListener('click', ()=>{
-    if(loadStrikes().length === 0) return;
-    if(!confirm('Clear all strikes?')) return;
+// ── INIT ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',()=>{
+  updateObsBadge();
+  updateCompassDisplay();
+  renderTrend([]);
+
+  document.getElementById('clear-all-btn').addEventListener('click',()=>{
+    if(!loadStrikes().length) return;
+    if(!confirm('Clear all strikes? This cannot be undone.')) return;
     clearStrikes();
     renderLog();
     updateObsBadge();
     if(window.sm_map) renderMapStrikes();
   });
-});
 
-// Refresh log timestamps every 30s so "X:XX ago" stays fresh
-setInterval(()=>{
-  if(document.getElementById('screen-record').classList.contains('active')){
-    renderLog();
-  }
-}, 30000);
-
-// ── WIRE BUTTONS ─────────────────────────────────────────────────────────────
-// The HTML still calls mockFlash/mockThunder — redefine them to hit our real handlers
-function mockFlash(btn){ onFlash(btn); }
-function mockThunder(btn){ onThunder(btn); }
-
-// ── calc box bearing display ─────────────────────────────────────────────────
-// Add id to the bearing calc-val so we can update it
-document.addEventListener('DOMContentLoaded', ()=>{
-  const rows = document.querySelectorAll('.calc-row');
-  rows.forEach(row=>{
-    const key = row.querySelector('.calc-key');
-    if(key && key.textContent.trim()==='BEARING'){
-      const val = row.querySelector('.calc-val');
-      if(val) val.id = 'c-bearing';
-    }
+  document.querySelectorAll('.mc-btn[data-age]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll('.mc-btn[data-age]').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      mapAgeFilter=btn.dataset.age;
+      renderMapStrikes();
+    });
   });
 });
+
+// Timestamp refresh — always runs, regardless of active tab
+setInterval(renderLog,30000);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MAP
 // ═══════════════════════════════════════════════════════════════════════════
-const FALLBACK_LAT = 32.7357;
-const FALLBACK_LON = -79.9956;
-const ZOOM = 12;
+const FALLBACK_LAT=32.7357,FALLBACK_LON=-79.9956,ZOOM=12;
 
-const map = L.map('map', {
-  center: [FALLBACK_LAT, FALLBACK_LON],
-  zoom: ZOOM,
-  zoomControl:     false,
-  dragging:        false,
-  touchZoom:       false,
-  doubleClickZoom: false,
-  scrollWheelZoom: false,
-  boxZoom:         false,
-  keyboard:        false,
-  tap:             false,
+const map=L.map('map',{
+  center:[FALLBACK_LAT,FALLBACK_LON],zoom:ZOOM,
+  zoomControl:false,dragging:false,touchZoom:false,
+  doubleClickZoom:false,scrollWheelZoom:false,boxZoom:false,keyboard:false,tap:false,
 });
-window.sm_map = map;
+window.sm_map=map;
 
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>',
-  subdomains: 'abcd',
-  maxZoom: 19,
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+  attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
+  subdomains:'abcd',maxZoom:19,
 }).addTo(map);
 
-// Inject keyframe for pulsing YOU marker
-const _style = document.createElement('style');
-_style.textContent = `
-  @keyframes pulse-ring {
-    0%   { transform:scale(1);   opacity:.6; }
-    100% { transform:scale(2.4); opacity:0;  }
-  }
-`;
-document.head.appendChild(_style);
+const _ps=document.createElement('style');
+_ps.textContent='@keyframes pulse-ring{0%{transform:scale(1);opacity:.6}100%{transform:scale(2.4);opacity:0}}';
+document.head.appendChild(_ps);
 
-const youIcon = L.divIcon({
-  className: '',
-  html: `<div style="width:14px;height:14px;border-radius:50%;background:#30c8e0;
-    box-shadow:0 0 0 3px rgba(48,200,224,.3),0 0 16px rgba(48,200,224,.6);position:relative;">
-    <div style="position:absolute;top:-4px;left:-4px;width:22px;height:22px;border-radius:50%;
-    border:1.5px solid rgba(48,200,224,.5);animation:pulse-ring 2.5s ease-out infinite;"></div>
-  </div>`,
-  iconSize: [14,14], iconAnchor: [7,7],
+const youIcon=L.divIcon({
+  className:'',
+  html:`<div style="width:14px;height:14px;border-radius:50%;background:#30c8e0;box-shadow:0 0 0 3px rgba(48,200,224,.3),0 0 16px rgba(48,200,224,.6);position:relative;"><div style="position:absolute;top:-4px;left:-4px;width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(48,200,224,.5);animation:pulse-ring 2.5s ease-out infinite;"></div></div>`,
+  iconSize:[14,14],iconAnchor:[7,7],
 });
 
-let userMarker=null, userLat=FALLBACK_LAT, userLon=FALLBACK_LON;
+let userMarker=null,userLat=FALLBACK_LAT,userLon=FALLBACK_LON;
 
 function placeUserMarker(lat,lon){
-  userLat=lat; userLon=lon;
+  userLat=lat;userLon=lon;
   if(userMarker) map.removeLayer(userMarker);
   userMarker=L.marker([lat,lon],{icon:youIcon,interactive:false}).addTo(map);
 }
 placeUserMarker(FALLBACK_LAT,FALLBACK_LON);
 
-// Geo
 const geoStatus=document.getElementById('geo-status');
-function onGeoSuccess(pos){
-  const {latitude:lat,longitude:lon,accuracy}=pos.coords;
-  map.setView([lat,lon],ZOOM);
-  placeUserMarker(lat,lon);
-  geoStatus.classList.add('hidden');
-}
-function onGeoError(err){
-  geoStatus.textContent='LOCATION UNAVAILABLE — USING DEFAULT';
-  setTimeout(()=>geoStatus.classList.add('hidden'),3000);
-}
 if('geolocation' in navigator){
-  geoStatus.textContent='ACQUIRING LOCATION…';
-  navigator.geolocation.getCurrentPosition(onGeoSuccess,onGeoError,{enableHighAccuracy:true,timeout:10000,maximumAge:60000});
-} else { onGeoError({}); }
+  navigator.geolocation.getCurrentPosition(
+    pos=>{ map.setView([pos.coords.latitude,pos.coords.longitude],ZOOM); placeUserMarker(pos.coords.latitude,pos.coords.longitude); geoStatus.classList.add('hidden'); },
+    ()=>{ geoStatus.textContent='LOCATION UNAVAILABLE — USING DEFAULT'; setTimeout(()=>geoStatus.classList.add('hidden'),3000); },
+    {enableHighAccuracy:true,timeout:10000,maximumAge:60000}
+  );
+} else { geoStatus.textContent='LOCATION UNAVAILABLE — USING DEFAULT'; setTimeout(()=>geoStatus.classList.add('hidden'),3000); }
 
-function recenterMap(){ map.setView([userLat,userLon],ZOOM); }
-document.querySelectorAll('.mc-btn').forEach(btn=>{
-  if(btn.textContent.includes('CENTER')) btn.onclick=recenterMap;
-});
+document.getElementById('recenter-btn').onclick=()=>map.setView([userLat,userLon],ZOOM);
 
-// ── PIZZA CRUST POLYGON ───────────────────────────────────────────────────────
-// Annular sector representing true measurement uncertainty:
-//   - Bearing error ±5°  → wedge that fans out with distance
-//   - Timing error ±500ms → inner/outer arc band (~±0.107 mi)
-// Shape: outer arc (left→right) + inner arc (right→left), closed polygon.
-// Collapses to a wedge if innerDist ≤ 0 (strike under ~560ft away).
-function makePizzaCrust(userLat, userLon, bearingDeg, distMi, color){
-  const DELTA_D_MI = 0.5 * SOUND_MPS * MI_PER_M;  // 0.5s × 343 m/s → ~0.107 mi
-  const DELTA_B    = 5;                             // ±5° bearing error
-  const ARC_STEPS  = 12;                            // interpolation points per arc
-
-  const innerDist = Math.max(0, distMi - DELTA_D_MI);
-  const outerDist = distMi + DELTA_D_MI;
-  const bearLeft  = bearingDeg - DELTA_B;
-  const bearRight = bearingDeg + DELTA_B;
-
-  const points = [];
-
-  // Outer arc: left → right at outerDist
-  for(let i = 0; i <= ARC_STEPS; i++){
-    const b = bearLeft + (bearRight - bearLeft) * (i / ARC_STEPS);
-    points.push(strikeLatLon(userLat, userLon, b, outerDist));
-  }
-
-  // Inner arc: right → left at innerDist (reversed to close shape correctly)
-  for(let i = ARC_STEPS; i >= 0; i--){
-    const b = bearLeft + (bearRight - bearLeft) * (i / ARC_STEPS);
-    points.push(strikeLatLon(userLat, userLon, b, innerDist));
-  }
-
-  return L.polygon(points, {
-    color,
-    weight: 1.5,
-    opacity: 0.85,
-    fillColor: color,
-    fillOpacity: 0.20,
-    interactive: false,
-  });
+// ── GEOMETRY ──────────────────────────────────────────────────────────────────
+function strikeLatLon(lat,lon,bear,distMi){
+  const R=6371000,d=distMi*1609.34,φ1=lat*Math.PI/180,λ1=lon*Math.PI/180,θ=bear*Math.PI/180;
+  const φ2=Math.asin(Math.sin(φ1)*Math.cos(d/R)+Math.cos(φ1)*Math.sin(d/R)*Math.cos(θ));
+  const λ2=λ1+Math.atan2(Math.sin(θ)*Math.sin(d/R)*Math.cos(φ1),Math.cos(d/R)-Math.sin(φ1)*Math.sin(φ2));
+  return [φ2*180/Math.PI,λ2*180/Math.PI];
 }
 
-// Strike center as a small circle marker
-function makeStrikeCenter(lat, lon, color, label){
-  const dot = L.circleMarker([lat,lon],{
-    radius: 5, color, weight:2, opacity:1,
-    fillColor: color, fillOpacity:1, interactive:false,
-  });
-  return dot;
+function makePizzaCrust(uLat,uLon,bear,distMi,color){
+  const DELTA_D=0.5*SOUND_MPS*MI_PER_M,DELTA_B=5,STEPS=12;
+  const inner=Math.max(0,distMi-DELTA_D),outer=distMi+DELTA_D;
+  const bL=bear-DELTA_B,bR=bear+DELTA_B;
+  const pts=[];
+  for(let i=0;i<=STEPS;i++){const b=bL+(bR-bL)*(i/STEPS);pts.push(strikeLatLon(uLat,uLon,b,outer));}
+  for(let i=STEPS;i>=0;i--){const b=bL+(bR-bL)*(i/STEPS);pts.push(strikeLatLon(uLat,uLon,b,inner));}
+  return L.polygon(pts,{color,weight:1.5,opacity:0.85,fillColor:color,fillOpacity:0.20,interactive:false});
 }
 
-// ── PROJECT STRIKE POINT ──────────────────────────────────────────────────────
-// Given user position, bearing (deg), distance (mi) → strike lat/lon
-function strikeLatLon(lat, lon, bearingDeg, distMi){
-  const R = 6371000;
-  const d = distMi * 1609.34;
-  const φ1 = lat * Math.PI/180;
-  const λ1 = lon * Math.PI/180;
-  const θ  = bearingDeg * Math.PI/180;
-  const φ2 = Math.asin(Math.sin(φ1)*Math.cos(d/R) + Math.cos(φ1)*Math.sin(d/R)*Math.cos(θ));
-  const λ2 = λ1 + Math.atan2(Math.sin(θ)*Math.sin(d/R)*Math.cos(φ1), Math.cos(d/R)-Math.sin(φ1)*Math.sin(φ2));
-  return [φ2*180/Math.PI, λ2*180/Math.PI];
+function makeBullseye(uLat,uLon,distMi,color){
+  return L.circle([uLat,uLon],{radius:distMi*1609.34,color,weight:1.5,fillColor:color,fillOpacity:0.10,dashArray:'4 4',interactive:false});
 }
 
-// ── STRIKE LAYER MANAGEMENT ───────────────────────────────────────────────────
-let strikeLayers = [];
+let strikeLayers=[];
+function clearStrikeLayers(){strikeLayers.forEach(l=>map.removeLayer(l));strikeLayers=[];}
+function strikeColor(ts){const c=ageClass(ts);return c==='recent'?'#f5c842':c==='mid'?'#f08030':'#4a7aaa';}
 
-function clearStrikeLayers(){
-  strikeLayers.forEach(l=>map.removeLayer(l));
-  strikeLayers = [];
-}
-
-// Color by age
-function strikeColor(ts){
-  const cls = ageClass(ts);
-  if(cls==='recent') return '#f5c842';
-  if(cls==='mid')    return '#f08030';
-  return '#4a7aaa';
-}
-
-let mapAgeFilter = 'all'; // 'all' | '10' | '30'
+let mapAgeFilter='all';
 
 function renderMapStrikes(){
   clearStrikeLayers();
-  const strikes = loadStrikes();
-  const now = Date.now();
-
-  // Filter
-  const filtered = strikes.filter(s=>{
-    if(mapAgeFilter==='10')  return (now-s.ts)/60000 <= 10;
-    if(mapAgeFilter==='30')  return (now-s.ts)/60000 <= 30;
+  const strikes=loadStrikes();
+  const now=Date.now();
+  const filtered=strikes.filter(s=>{
+    if(mapAgeFilter==='10') return (now-s.ts)/60000<=10;
+    if(mapAgeFilter==='30') return (now-s.ts)/60000<=30;
     return true;
   });
 
-  let hasDistant = false;
-  let closest = null;
+  let hasDistant=false,closest=null;
 
-  filtered.forEach((s, idx)=>{
-    if(s.bear===null) return;          // no heading → can't plot
-    if(s.distMi > MAX_DIST_MI){ hasDistant=true; return; }
+  filtered.forEach((s,idx)=>{
+    if(s.distMi>MAX_DIST_MI){hasDistant=true;return;}
+    const color=strikeColor(s.ts);
 
-    const [sLat, sLon] = strikeLatLon(userLat, userLon, s.bear, s.distMi);
-    const color = strikeColor(s.ts);
+    if(s.bear===null){
+      // Couch mode / no heading → bullseye ring
+      const ring=makeBullseye(userLat,userLon,s.distMi,color);
+      map.addLayer(ring);strikeLayers.push(ring);
+    } else {
+      const [sLat,sLon]=strikeLatLon(userLat,userLon,s.bear,s.distMi);
+      const line=L.polyline([[userLat,userLon],[sLat,sLon]],{color,weight:1,opacity:0.3,dashArray:'6 5',interactive:false});
+      map.addLayer(line);strikeLayers.push(line);
+      const crust=makePizzaCrust(userLat,userLon,s.bear,s.distMi,color);
+      map.addLayer(crust);strikeLayers.push(crust);
+      const dot=L.circleMarker([sLat,sLon],{radius:5,color,weight:2,fillColor:color,fillOpacity:1,interactive:false});
+      map.addLayer(dot);strikeLayers.push(dot);
 
-    // Bearing dashed line from user to strike
-    const line = L.polyline([[userLat,userLon],[sLat,sLon]],{
-      color, weight:1, opacity:0.3, dashArray:'6 5', interactive:false,
-    });
-    map.addLayer(line);
-    strikeLayers.push(line);
-
-    // Uncertainty region (pizza crust / annular sector)
-    const ellipse = makePizzaCrust(userLat, userLon, s.bear, s.distMi, color);
-    map.addLayer(ellipse);
-    strikeLayers.push(ellipse);
-
-    // Center dot
-    const dot = makeStrikeCenter(sLat, sLon, color);
-    map.addLayer(dot);
-    strikeLayers.push(dot);
-
-    // Label on most recent only
-    if(idx===0){
-      const label = L.marker([sLat,sLon],{
-        icon: L.divIcon({
-          className:'',
-          html:`<div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:${color};
-            white-space:nowrap;margin-left:8px;margin-top:-6px;text-shadow:0 0 4px #000;">
-            ⚡ ${s.distMi.toFixed(2)}mi</div>`,
-          iconSize:[0,0], iconAnchor:[0,0],
-        }),
-        interactive:false,
-      });
-      map.addLayer(label);
-      strikeLayers.push(label);
+      if(idx===0){
+        // Offset label by quadrant to avoid edge clipping
+        const bearRad=s.bear*Math.PI/180;
+        const ml=Math.sin(bearRad)>=0?8:-72;
+        const mt=Math.cos(bearRad)>=0?-14:4;
+        const label=L.marker([sLat,sLon],{
+          icon:L.divIcon({
+            className:'',
+            html:`<div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:${color};white-space:nowrap;margin-left:${ml}px;margin-top:${mt}px;text-shadow:0 0 4px #000;">⚡ ${s.distMi.toFixed(2)}mi</div>`,
+            iconSize:[0,0],iconAnchor:[0,0],
+          }),interactive:false,
+        });
+        map.addLayer(label);strikeLayers.push(label);
+      }
     }
-
-    if(closest===null || s.distMi < closest.distMi) closest = s;
+    if(!closest||s.distMi<closest.distMi) closest=s;
   });
 
-  updateMapStrip(filtered, closest, hasDistant);
+  updateMapStrip(filtered,closest,hasDistant);
 }
 
-// ── MAP BOTTOM STRIP ──────────────────────────────────────────────────────────
-function updateMapStrip(strikes, closest, hasDistant){
-  const obsEl  = document.querySelector('.map-strip .ms:nth-child(1) .ms-val');
-  const cloEl  = document.querySelector('.map-strip .ms:nth-child(2) .ms-val');
-  const dirEl  = document.querySelector('.map-strip .ms:nth-child(3) .ms-val');
-  const trendEl= document.querySelector('.map-strip .ms:nth-child(4) .ms-val');
-  const alertEl= document.querySelector('.approach-alert');
-  const distantEl = document.getElementById('distant-notice');
+function updateMapStrip(strikes,closest,hasDistant){
+  document.getElementById('strip-obs').textContent=strikes.length||'—';
+  document.getElementById('strip-closest').textContent=closest?closest.distMi.toFixed(2)+' mi':'—';
 
-  if(obsEl) obsEl.textContent = strikes.length;
+  const dirEl=document.getElementById('strip-dir');
+  if(closest&&closest.card){dirEl.textContent=closest.card;dirEl.className='ms-val cy';}
+  else{dirEl.textContent='—';dirEl.className='ms-val';}
 
-  // DISTANT banner
-  if(distantEl){
-    if(hasDistant){
-      const n = strikes.filter(s=>s.distMi > MAX_DIST_MI).length;
-      distantEl.textContent = `${n} DISTANT STRIKE${n>1?'S':''} >6 MI — NOT PLOTTED`;
-      distantEl.style.display = 'block';
-    } else {
-      distantEl.style.display = 'none';
-    }
-  }
-
-  if(closest){
-    if(cloEl) cloEl.textContent = closest.distMi.toFixed(2)+' mi';
-    if(dirEl){ dirEl.textContent = closest.card||'---'; dirEl.className='ms-val cy'; }
-  } else {
-    if(cloEl) cloEl.textContent = '—';
-    if(dirEl){ dirEl.textContent = '—'; dirEl.className='ms-val'; }
-  }
-
-  // Trend from full strike list
-  const all = loadStrikes().filter(s=>s.bear!==null);
+  const trendEl=document.getElementById('strip-trend');
+  const alertEl=document.getElementById('approach-alert');
+  const all=loadStrikes();
   if(all.length>=2){
-    const delta = all[0].distMi - all[1].distMi;
-    if(Math.abs(delta)<0.05){
-      if(trendEl){ trendEl.textContent='→ STEADY'; trendEl.className='ms-val'; }
-      if(alertEl) alertEl.style.display='none';
-    } else if(delta<0){
-      if(trendEl){ trendEl.textContent='▼ CLOSER'; trendEl.className='ms-val rd'; }
-      if(alertEl) alertEl.style.display='flex';
-    } else {
-      if(trendEl){ trendEl.textContent='▲ FARTHER'; trendEl.className='ms-val gn'; }
-      if(alertEl) alertEl.style.display='none';
-    }
-  } else {
-    if(trendEl){ trendEl.textContent='—'; trendEl.className='ms-val'; }
-    if(alertEl) alertEl.style.display='none';
-  }
+    const d=all[0].distMi-all[1].distMi;
+    if(Math.abs(d)<0.05){trendEl.textContent='→ STEADY';trendEl.className='ms-val';alertEl.style.display='none';}
+    else if(d<0){trendEl.textContent='▼ CLOSER';trendEl.className='ms-val rd';alertEl.style.display='flex';}
+    else{trendEl.textContent='▲ FARTHER';trendEl.className='ms-val gn';alertEl.style.display='none';}
+  } else{trendEl.textContent='—';trendEl.className='ms-val';alertEl.style.display='none';}
+
+  const distantEl=document.getElementById('distant-notice');
+  if(hasDistant){
+    const n=strikes.filter(s=>s.distMi>MAX_DIST_MI).length;
+    distantEl.textContent=`${n} DISTANT STRIKE${n>1?'S':''} >6 MI — NOT PLOTTED`;
+    distantEl.style.display='block';
+  } else distantEl.style.display='none';
 }
 
-// ── AGE FILTER BUTTONS ────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', ()=>{
-  document.querySelectorAll('.mc-btn[data-age]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      document.querySelectorAll('.mc-btn[data-age]').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      mapAgeFilter = btn.dataset.age;
-      renderMapStrikes();
-    });
-  });
-});
+// ── LEGEND TOGGLE ─────────────────────────────────────────────────────────────
+function toggleLegend(){
+  const body=document.getElementById('legend-body');
+  const icon=document.getElementById('legend-icon');
+  const hidden=body.classList.contains('hidden');
+  body.classList.toggle('hidden',!hidden);
+  icon.textContent=hidden?'▾':'▸';
+}
 </script>
 </body>
 </html>
