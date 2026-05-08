@@ -193,8 +193,8 @@
 <section class="screen active" id="screen-record">
   <div class="panel-l">
     <div class="compass-wrap">
-      <div class="sec-label">BEARING — POINT PHONE AT FLASH</div>
-      <div class="compass-ring">
+      <div class="sec-label">BEARING</div>
+      <button class="compass-ring" id="compass-tap-btn" onclick="onCompassTap()" style="background:none;border:none;cursor:pointer;padding:0;position:relative;width:150px;height:150px;">
         <svg viewBox="0 0 150 150">
           <circle cx="75" cy="75" r="70" fill="none" stroke="#1e2d38" stroke-width="1"/>
           <g stroke="#2a3d4a" stroke-width="1">
@@ -207,17 +207,16 @@
           <text x="75" y="137" text-anchor="middle" fill="#5a7a8a" font-family="'Share Tech Mono'" font-size="9">S</text>
           <text x="14" y="79"  text-anchor="middle" fill="#5a7a8a" font-family="'Share Tech Mono'" font-size="9">W</text>
           <text x="136" y="79" text-anchor="middle" fill="#5a7a8a" font-family="'Share Tech Mono'" font-size="9">E</text>
-          <!-- needle pointing NNE ~043° -->
-          <line x1="75" y1="75" x2="105" y2="30" stroke="#f5c842" stroke-width="2.5" stroke-linecap="round"/>
+          <line id="compass-needle" x1="75" y1="75" x2="105" y2="30" stroke="#f5c842" stroke-width="2.5" stroke-linecap="round"/>
           <circle cx="75" cy="75" r="4" fill="#f5c842"/>
           <circle cx="75" cy="75" r="2.5" fill="#080c10"/>
         </svg>
         <div class="compass-center">
-          <div class="compass-deg">043°</div>
-          <div class="compass-card">NNE</div>
+          <div class="compass-deg" id="compass-deg-el">---</div>
+          <div class="compass-card" id="compass-card-el">NO COMPASS</div>
         </div>
-      </div>
-      <div class="sec-label" style="text-align:center;font-size:8px;">heading locks when you tap FLASH</div>
+      </button>
+      <div class="sec-label" id="compass-hint" style="text-align:center;font-size:8px;">tap SAW FLASH, point at lightning, tap compass to lock</div>
     </div>
 
     <button class="big-btn btn-flash" onclick="mockFlash(this)">
@@ -330,153 +329,652 @@
 </section>
 
 <script>
+// ═══════════════════════════════════════════════════════════════════════════
+// STRIKEMAP — Session 2: Compass + localStorage + real flash/thunder logic
+// ═══════════════════════════════════════════════════════════════════════════
+
 // ── SCREEN NAV ──────────────────────────────────────────────────────────────
 function showScreen(name){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('screen-'+name).classList.add('active');
   document.getElementById('tab-'+name).classList.add('active');
-  // Leaflet needs a size-invalidation when its container becomes visible
   if(name==='map' && window.sm_map) window.sm_map.invalidateSize();
+  if(name==='map') renderMapStrikes();
 }
 
-// ── MOCK FLASH/THUNDER (unchanged from mockup) ───────────────────────────────
-let flashTime=null, timerTick=null;
-function mockFlash(btn){
-  flashTime=Date.now();
-  document.getElementById('btn-thunder').classList.add('armed');
-  document.getElementById('thunder-sub').textContent='tap when you hear it...';
-  btn.style.boxShadow='0 0 60px rgba(245,200,66,.7)';
-  setTimeout(()=>btn.style.boxShadow='',400);
+// ── CONSTANTS ───────────────────────────────────────────────────────────────
+const SOUND_MPS = 343;           // m/s
+const MI_PER_M  = 0.000621371;
+const MAX_DIST_MI = 6.2;         // beyond this → DISTANT, no ellipse
+const TIMING_ERR_S = 0.25;       // ±250ms timing uncertainty
+const BEARING_ERR_DEG = 5;       // ±5° compass uncertainty
+const LS_KEY = 'sm_strikes';
+
+// ── STORAGE ─────────────────────────────────────────────────────────────────
+function loadStrikes(){
+  try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; }
+  catch(e){ return []; }
+}
+function saveStrikes(arr){
+  localStorage.setItem(LS_KEY, JSON.stringify(arr));
+}
+function addStrike(strike){
+  const arr = loadStrikes();
+  arr.unshift(strike); // newest first
+  saveStrikes(arr);
+}
+function clearStrikes(){
+  localStorage.removeItem(LS_KEY);
+}
+
+// ── CARDINAL DIRECTION ───────────────────────────────────────────────────────
+function toCardinal(deg){
+  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  return dirs[Math.round(deg/22.5) % 16];
+}
+
+// ── AGE CLASS ───────────────────────────────────────────────────────────────
+function ageClass(ts){
+  const ago = (Date.now()-ts)/1000/60; // minutes
+  if(ago < 5)  return 'recent';
+  if(ago < 15) return 'mid';
+  return 'old';
+}
+
+// ── RELATIVE TIME ────────────────────────────────────────────────────────────
+function relTime(ts){
+  const s = Math.round((Date.now()-ts)/1000);
+  if(s < 60) return `0:${String(s).padStart(2,'0')} ago`;
+  const m = Math.floor(s/60), r = s%60;
+  return `${m}:${String(r).padStart(2,'0')} ago`;
+}
+
+// ── COMPASS STATE ────────────────────────────────────────────────────────────
+let liveHeading   = null;   // current smoothed live reading
+let lockedHeading = null;   // set when user taps compass; null = unlocked
+let compassEnabled = false;
+let compassPermissionAsked = false;
+let bearingArmed = false;   // true after FLASH tap, waiting for compass lock
+
+const HEADING_BUF = 8;
+const headingBuf = [];
+
+function pushHeading(h){
+  headingBuf.push(h);
+  if(headingBuf.length > HEADING_BUF) headingBuf.shift();
+  let sinSum=0, cosSum=0;
+  headingBuf.forEach(a=>{ sinSum+=Math.sin(a*Math.PI/180); cosSum+=Math.cos(a*Math.PI/180); });
+  liveHeading = (Math.atan2(sinSum, cosSum)*180/Math.PI + 360) % 360;
+}
+
+function updateCompassDisplay(){
+  const degEl  = document.getElementById('compass-deg-el');
+  const cardEl = document.getElementById('compass-card-el');
+  const needle = document.getElementById('compass-needle');
+  const hint   = document.getElementById('compass-hint');
+  const ring   = document.getElementById('compass-tap-btn');
+
+  if(lockedHeading !== null){
+    // Locked state — show green confirmation
+    const d = Math.round(lockedHeading);
+    degEl.textContent  = String(d).padStart(3,'0')+'°';
+    degEl.style.color  = '#30a860';
+    cardEl.textContent = '✓ LOCKED';
+    cardEl.style.color = '#30a860';
+    if(needle) needle.setAttribute('transform',`rotate(${d},75,75)`);
+    if(hint) hint.textContent = 'tap compass to unlock';
+    if(ring) ring.style.boxShadow = '0 0 16px rgba(48,168,96,.4)';
+  } else if(bearingArmed){
+    // Live — waiting for user to tap
+    const d = liveHeading !== null ? Math.round(liveHeading) : null;
+    degEl.textContent  = d !== null ? String(d).padStart(3,'0')+'°' : '---';
+    degEl.style.color  = '#f5c842';
+    cardEl.textContent = d !== null ? toCardinal(d) : '---';
+    cardEl.style.color = '#f5c842';
+    if(needle && d!==null) needle.setAttribute('transform',`rotate(${d},75,75)`);
+    if(hint) hint.textContent = 'point at lightning → tap compass to lock';
+    if(ring) ring.style.boxShadow = '0 0 16px rgba(245,200,66,.3)';
+  } else {
+    // Idle
+    const d = liveHeading !== null ? Math.round(liveHeading) : null;
+    degEl.textContent  = d !== null ? String(d).padStart(3,'0')+'°' : '---';
+    degEl.style.color  = '';
+    cardEl.textContent = d !== null ? toCardinal(d) : (compassEnabled ? '---' : 'NO COMPASS');
+    cardEl.style.color = '';
+    if(needle && d!==null) needle.setAttribute('transform',`rotate(${d},75,75)`);
+    if(hint) hint.textContent = 'tap SAW FLASH, point at lightning, tap compass to lock';
+    if(ring) ring.style.boxShadow = '';
+  }
+}
+
+// Called when user taps the compass ring
+function onCompassTap(){
+  if(!bearingArmed && lockedHeading === null) return; // idle, ignore
+  if(lockedHeading !== null){
+    // Already locked — tap again to unlock (re-arm)
+    lockedHeading = null;
+    updateCompassDisplay();
+    return;
+  }
+  // Lock current live heading
+  lockedHeading = liveHeading;
+  updateCompassDisplay();
+}
+
+function onDeviceOrientation(e){
+  let h = null;
+  if(typeof e.webkitCompassHeading === 'number'){
+    h = e.webkitCompassHeading;
+  } else if(e.absolute && typeof e.alpha === 'number'){
+    h = (360 - e.alpha) % 360;
+  } else if(typeof e.alpha === 'number'){
+    h = (360 - e.alpha) % 360;
+  }
+  if(h === null) return;
+  pushHeading(h);
+  if(lockedHeading === null) updateCompassDisplay(); // don't update display while locked
+}
+
+function startCompass(){
+  window.addEventListener('deviceorientation', onDeviceOrientation, true);
+  compassEnabled = true;
+  console.log('[strikemap] Compass listener attached');
+}
+
+async function requestCompassPermission(){
+  if(compassPermissionAsked) return;
+  compassPermissionAsked = true;
+  if(typeof DeviceOrientationEvent !== 'undefined' &&
+     typeof DeviceOrientationEvent.requestPermission === 'function'){
+    // iOS 13+
+    try {
+      const perm = await DeviceOrientationEvent.requestPermission();
+      if(perm === 'granted') startCompass();
+      else console.warn('[strikemap] Compass permission denied');
+    } catch(err){
+      console.warn('[strikemap] Compass permission error:', err);
+      startCompass(); // try anyway
+    }
+  } else {
+    // Non-iOS — just start
+    startCompass();
+  }
+}
+
+// ── COMPASS SVG — replace static needle with a dynamic one ──────────────────
+// We'll patch the SVG needle to have id="compass-needle" and a transform group
+document.addEventListener('DOMContentLoaded', ()=>{
+  renderLog();
+  updateObsBadge();
+  updateCompassDisplay();
+});
+
+// ── FLASH / THUNDER STATE ────────────────────────────────────────────────────
+let flashTime   = null;
+let timerTick   = null;
+let flashArmed  = false;  // true after FLASH tapped, waiting for THUNDER
+
+// FLASH tap
+function onFlash(btn){
+  if(!compassPermissionAsked) requestCompassPermission();
+
+  flashTime  = Date.now();
+  flashArmed = true;
+  bearingArmed = true;
+  lockedHeading = null; // ensure unlocked so compass goes live
+
+  const thunderBtn = document.getElementById('btn-thunder');
+  thunderBtn.classList.add('armed');
+  document.getElementById('thunder-sub').textContent = 'tap when you hear it...';
+  btn.style.boxShadow = '0 0 60px rgba(245,200,66,.7)';
+  setTimeout(()=>btn.style.boxShadow='', 400);
+
+  updateCompassDisplay();
+
   if(timerTick) clearInterval(timerTick);
-  timerTick=setInterval(()=>{
-    if(!flashTime) return clearInterval(timerTick);
-    document.getElementById('live-timer').textContent=((Date.now()-flashTime)/1000).toFixed(1)+'s';
-  },100);
+  timerTick = setInterval(()=>{
+    if(!flashTime){ clearInterval(timerTick); return; }
+    document.getElementById('live-timer').textContent = ((Date.now()-flashTime)/1000).toFixed(1)+'s';
+    const bear = lockedHeading !== null ? Math.round(lockedHeading) : null;
+    if(document.getElementById('c-bearing')){
+      document.getElementById('c-bearing').textContent =
+        bear !== null ? `${String(bear).padStart(3,'0')}° ${toCardinal(bear)}` : '--- POINT & TAP';
+    }
+  }, 100);
 }
-function mockThunder(btn){
-  if(!flashTime) return;
+
+// THUNDER tap
+function onThunder(btn){
+  if(!flashArmed || !flashTime) return;
+
   clearInterval(timerTick);
-  const d=(Date.now()-flashTime)/1000;
-  const mi=(d*343*0.000621371).toFixed(2);
-  document.getElementById('c-delay').textContent=d.toFixed(1)+'s';
-  document.getElementById('c-dist').textContent=mi+' mi';
-  document.getElementById('live-timer').textContent=d.toFixed(1)+'s';
+  const delay  = (Date.now()-flashTime)/1000;
+  const distMi = delay * SOUND_MPS * MI_PER_M;
+
+  // Capture bearing BEFORE clearing state
+  const bear = lockedHeading !== null ? Math.round(lockedHeading) : null;
+
+  // Reset state
+  flashArmed   = false;
+  bearingArmed = false;
+  flashTime    = null;
+  lockedHeading = null;
+
+  // Update calc display
+  document.getElementById('live-timer').textContent = delay.toFixed(1)+'s';
+  document.getElementById('c-delay').textContent    = delay.toFixed(1)+'s';
+  document.getElementById('c-dist').textContent     = distMi.toFixed(2)+' mi';
+  if(document.getElementById('c-bearing')){
+    document.getElementById('c-bearing').textContent =
+      bear !== null ? `${String(bear).padStart(3,'0')}° ${toCardinal(bear)}` : '--- NO COMPASS';
+  }
+
+  // Button reset
   btn.classList.remove('armed');
-  document.getElementById('thunder-sub').textContent='press Flash first';
-  btn.style.boxShadow='0 0 30px rgba(48,200,224,.5)';
-  setTimeout(()=>btn.style.boxShadow='',400);
-  flashTime=null;
+  document.getElementById('thunder-sub').textContent = 'press Flash first';
+  btn.style.boxShadow = '0 0 30px rgba(48,200,224,.5)';
+  setTimeout(()=>btn.style.boxShadow='', 400);
+
+  updateCompassDisplay();
+
+  // Save strike
+  const strike = {
+    ts:     Date.now(),
+    delay:  Math.round(delay*10)/10,
+    distMi: Math.round(distMi*100)/100,
+    bear,
+    card:   bear !== null ? toCardinal(bear) : null,
+  };
+  addStrike(strike);
+  renderLog();
+  updateObsBadge();
 }
 
-// ── MAP ──────────────────────────────────────────────────────────────────────
+// ── LOG RENDERING ────────────────────────────────────────────────────────────
+function renderLog(){
+  const strikes = loadStrikes();
+  const logEl   = document.querySelector('.strike-log');
+  const countEl = document.querySelector('.log-count');
+  if(!logEl) return;
 
-// Fallback center: James Island / Charleston, SC
+  countEl.textContent = strikes.length + ' STRIKE' + (strikes.length!==1?'S':'');
+
+  if(strikes.length === 0){
+    logEl.innerHTML = `<div style="font-family:var(--mono);font-size:9px;color:var(--dim);padding:12px 0;text-align:center;letter-spacing:2px;">NO STRIKES YET</div>`;
+    return;
+  }
+
+  logEl.innerHTML = strikes.map(s=>{
+    const cls   = ageClass(s.ts);
+    const bear  = s.bear !== null ? `${String(s.bear).padStart(3,'0')}° ${s.card}` : '--- NO HDG';
+    const cardDisp = s.card || '---';
+    return `
+      <div class="s-entry ${cls}">
+        <div>
+          <div class="s-dist ${cls}">${s.distMi.toFixed(2)} mi</div>
+          <div class="s-meta">${s.delay.toFixed(1)}s · ${bear}</div>
+        </div>
+        <div>
+          <div class="s-bearing ${cls}">${cardDisp}</div>
+          <div class="s-time">${relTime(s.ts)}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  renderTrend(strikes);
+}
+
+// ── TREND ────────────────────────────────────────────────────────────────────
+function renderTrend(strikes){
+  const barsEl   = document.querySelector('.trend-bars');
+  const statusEl = document.querySelector('.trend-status');
+  if(!barsEl || !strikes.length) return;
+
+  // Use up to 8 most recent strikes (already newest-first)
+  const recent = strikes.slice(0,8).reverse(); // oldest→newest for display
+  const maxDist = Math.max(...recent.map(s=>s.distMi), 0.1);
+
+  // Color per age of each bar
+  barsEl.innerHTML = recent.map(s=>{
+    const cls = ageClass(s.ts);
+    const color = cls==='recent' ? '#f5c842' : cls==='mid' ? '#f08030' : '#4a7aaa';
+    const h = Math.max(8, Math.round((s.distMi/maxDist)*100));
+    return `<div class="trend-bar-col" style="height:${h}%;background:${color};opacity:.85"></div>`;
+  }).join('');
+
+  // Trend: compare last 2 strikes
+  if(strikes.length >= 2){
+    const delta = strikes[0].distMi - strikes[1].distMi; // newest - prev
+    const absDelta = Math.abs(delta).toFixed(2);
+    if(Math.abs(delta) < 0.05){
+      statusEl.className = 'trend-status';
+      statusEl.textContent = '→ STEADY';
+    } else if(delta < 0){
+      statusEl.className = 'trend-status approaching';
+      statusEl.textContent = `▼ APPROACHING · ${absDelta} mi closer`;
+    } else {
+      statusEl.className = 'trend-status receding';
+      statusEl.textContent = `▲ RECEDING · ${absDelta} mi farther`;
+    }
+  } else {
+    statusEl.className = 'trend-status';
+    statusEl.textContent = '— NEED MORE DATA';
+  }
+}
+
+// ── OBS BADGE ────────────────────────────────────────────────────────────────
+function updateObsBadge(){
+  const n = loadStrikes().length;
+  document.getElementById('obs-badge').textContent = n + ' OBS';
+}
+
+// ── CLEAR ────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', ()=>{
+  document.querySelector('.clear-btn').addEventListener('click', ()=>{
+    if(loadStrikes().length === 0) return;
+    if(!confirm('Clear all strikes?')) return;
+    clearStrikes();
+    renderLog();
+    updateObsBadge();
+    if(window.sm_map) renderMapStrikes();
+  });
+});
+
+// Refresh log timestamps every 30s so "X:XX ago" stays fresh
+setInterval(()=>{
+  if(document.getElementById('screen-record').classList.contains('active')){
+    renderLog();
+  }
+}, 30000);
+
+// ── WIRE BUTTONS ─────────────────────────────────────────────────────────────
+// The HTML still calls mockFlash/mockThunder — redefine them to hit our real handlers
+function mockFlash(btn){ onFlash(btn); }
+function mockThunder(btn){ onThunder(btn); }
+
+// ── calc box bearing display ─────────────────────────────────────────────────
+// Add id to the bearing calc-val so we can update it
+document.addEventListener('DOMContentLoaded', ()=>{
+  const rows = document.querySelectorAll('.calc-row');
+  rows.forEach(row=>{
+    const key = row.querySelector('.calc-key');
+    if(key && key.textContent.trim()==='BEARING'){
+      const val = row.querySelector('.calc-val');
+      if(val) val.id = 'c-bearing';
+    }
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MAP
+// ═══════════════════════════════════════════════════════════════════════════
 const FALLBACK_LAT = 32.7357;
 const FALLBACK_LON = -79.9956;
 const ZOOM = 12;
 
-// Initialize Leaflet — all interaction disabled per spec
 const map = L.map('map', {
   center: [FALLBACK_LAT, FALLBACK_LON],
   zoom: ZOOM,
-  zoomControl:       false,
-  dragging:          false,
-  touchZoom:         false,
-  doubleClickZoom:   false,
-  scrollWheelZoom:   false,
-  boxZoom:           false,
-  keyboard:          false,
-  tap:               false,   // disables tap handler on mobile
+  zoomControl:     false,
+  dragging:        false,
+  touchZoom:       false,
+  doubleClickZoom: false,
+  scrollWheelZoom: false,
+  boxZoom:         false,
+  keyboard:        false,
+  tap:             false,
 });
-window.sm_map = map;  // expose so showScreen() can invalidateSize
+window.sm_map = map;
 
-// CartoDB Dark Matter — no API key, fits the dark UI perfectly
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
   attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>',
   subdomains: 'abcd',
   maxZoom: 19,
 }).addTo(map);
 
-// "YOU ARE HERE" marker — custom cyan pulsing dot via divIcon
-const youIcon = L.divIcon({
-  className: '',
-  html: `<div style="
-    width:14px;height:14px;border-radius:50%;
-    background:#30c8e0;
-    box-shadow:0 0 0 3px rgba(48,200,224,.3), 0 0 16px rgba(48,200,224,.6);
-    position:relative;
-  ">
-    <div style="
-      position:absolute;top:-4px;left:-4px;
-      width:22px;height:22px;border-radius:50%;
-      border:1.5px solid rgba(48,200,224,.5);
-      animation:pulse-ring 2.5s ease-out infinite;
-    "></div>
-  </div>`,
-  iconSize: [14,14],
-  iconAnchor: [7,7],
-});
-
-// Inject the pulse keyframe into the page
-const style = document.createElement('style');
-style.textContent = `
+// Inject keyframe for pulsing YOU marker
+const _style = document.createElement('style');
+_style.textContent = `
   @keyframes pulse-ring {
     0%   { transform:scale(1);   opacity:.6; }
     100% { transform:scale(2.4); opacity:0;  }
   }
 `;
-document.head.appendChild(style);
+document.head.appendChild(_style);
 
-let userMarker = null;
-let userLat = FALLBACK_LAT;
-let userLon = FALLBACK_LON;
+const youIcon = L.divIcon({
+  className: '',
+  html: `<div style="width:14px;height:14px;border-radius:50%;background:#30c8e0;
+    box-shadow:0 0 0 3px rgba(48,200,224,.3),0 0 16px rgba(48,200,224,.6);position:relative;">
+    <div style="position:absolute;top:-4px;left:-4px;width:22px;height:22px;border-radius:50%;
+    border:1.5px solid rgba(48,200,224,.5);animation:pulse-ring 2.5s ease-out infinite;"></div>
+  </div>`,
+  iconSize: [14,14], iconAnchor: [7,7],
+});
 
-function placeUserMarker(lat, lon){
-  userLat = lat; userLon = lon;
+let userMarker=null, userLat=FALLBACK_LAT, userLon=FALLBACK_LON;
+
+function placeUserMarker(lat,lon){
+  userLat=lat; userLon=lon;
   if(userMarker) map.removeLayer(userMarker);
-  userMarker = L.marker([lat, lon], { icon: youIcon, interactive: false }).addTo(map);
+  userMarker=L.marker([lat,lon],{icon:youIcon,interactive:false}).addTo(map);
 }
+placeUserMarker(FALLBACK_LAT,FALLBACK_LON);
 
-// Place marker at fallback immediately so the map isn't empty on load
-placeUserMarker(FALLBACK_LAT, FALLBACK_LON);
-
-// Geolocation
-const geoStatus = document.getElementById('geo-status');
-
+// Geo
+const geoStatus=document.getElementById('geo-status');
 function onGeoSuccess(pos){
-  const { latitude: lat, longitude: lon, accuracy } = pos.coords;
-  map.setView([lat, lon], ZOOM);
-  placeUserMarker(lat, lon);
+  const {latitude:lat,longitude:lon,accuracy}=pos.coords;
+  map.setView([lat,lon],ZOOM);
+  placeUserMarker(lat,lon);
   geoStatus.classList.add('hidden');
-  console.log(`[strikemap] Located: ${lat.toFixed(5)}, ${lon.toFixed(5)} ±${Math.round(accuracy)}m`);
 }
-
 function onGeoError(err){
-  console.warn('[strikemap] Geolocation error:', err.message);
-  geoStatus.textContent = 'LOCATION UNAVAILABLE — USING DEFAULT';
-  setTimeout(()=>geoStatus.classList.add('hidden'), 3000);
+  geoStatus.textContent='LOCATION UNAVAILABLE — USING DEFAULT';
+  setTimeout(()=>geoStatus.classList.add('hidden'),3000);
 }
-
 if('geolocation' in navigator){
-  geoStatus.textContent = 'ACQUIRING LOCATION…';
-  navigator.geolocation.getCurrentPosition(onGeoSuccess, onGeoError, {
-    enableHighAccuracy: true,
-    timeout: 10000,
-    maximumAge: 60000,
+  geoStatus.textContent='ACQUIRING LOCATION…';
+  navigator.geolocation.getCurrentPosition(onGeoSuccess,onGeoError,{enableHighAccuracy:true,timeout:10000,maximumAge:60000});
+} else { onGeoError({}); }
+
+function recenterMap(){ map.setView([userLat,userLon],ZOOM); }
+document.querySelectorAll('.mc-btn').forEach(btn=>{
+  if(btn.textContent.includes('CENTER')) btn.onclick=recenterMap;
+});
+
+// ── ELLIPSE POLYGON HELPER ────────────────────────────────────────────────────
+// Returns an L.polygon representing the uncertainty ellipse for one strike.
+// bearingDeg: 0=north, distMi: distance in miles
+function makeEllipsePolygon(lat, lon, bearingDeg, distMi, color){
+  const radialM   = TIMING_ERR_S * SOUND_MPS;                       // ±86m (short)
+  const tangM     = Math.sin(BEARING_ERR_DEG * Math.PI/180) * distMi * 1609.34; // grows with dist
+
+  const STEPS = 36;
+  const R_EARTH = 6371000; // meters
+
+  // Build ellipse in local East-North coords, rotate to bearing
+  const bearRad = bearingDeg * Math.PI / 180;
+  const points = [];
+  for(let i=0; i<STEPS; i++){
+    const t = (2*Math.PI*i)/STEPS;
+    // Unrotated: x=tangential (E), y=radial (N along bearing)
+    const ex = tangM  * Math.cos(t);
+    const ey = radialM * Math.sin(t);
+    // Rotate by bearingDeg so major axis (tangential) is perpendicular to bearing
+    const rx =  ex*Math.cos(bearRad) - ey*Math.sin(bearRad);
+    const ry =  ex*Math.sin(bearRad) + ey*Math.cos(bearRad);
+    // Project to lat/lon
+    const dLat = ry / R_EARTH * (180/Math.PI);
+    const dLon = rx / R_EARTH * (180/Math.PI) / Math.cos(lat*Math.PI/180);
+    points.push([lat+dLat, lon+dLon]);
+  }
+
+  return L.polygon(points, {
+    color,
+    weight: 1.8,
+    opacity: 0.85,
+    fillColor: color,
+    fillOpacity: 0.18,
+    dashArray: distMi < 5 ? null : '5 4',
+    interactive: false,
   });
-} else {
-  onGeoError({ message: 'Geolocation not supported' });
 }
 
-// ── RE-CENTER button (wired to the ⊕ CENTER button in map controls) ──────────
-function recenterMap(){
-  map.setView([userLat, userLon], ZOOM);
+// Strike center as a small circle marker
+function makeStrikeCenter(lat, lon, color, label){
+  const dot = L.circleMarker([lat,lon],{
+    radius: 5, color, weight:2, opacity:1,
+    fillColor: color, fillOpacity:1, interactive:false,
+  });
+  return dot;
 }
 
-// Wire the center button — find it by text content
-document.querySelectorAll('.mc-btn').forEach(btn => {
-  if(btn.textContent.includes('CENTER')) btn.onclick = recenterMap;
+// ── PROJECT STRIKE POINT ──────────────────────────────────────────────────────
+// Given user position, bearing (deg), distance (mi) → strike lat/lon
+function strikeLatLon(lat, lon, bearingDeg, distMi){
+  const R = 6371000;
+  const d = distMi * 1609.34;
+  const φ1 = lat * Math.PI/180;
+  const λ1 = lon * Math.PI/180;
+  const θ  = bearingDeg * Math.PI/180;
+  const φ2 = Math.asin(Math.sin(φ1)*Math.cos(d/R) + Math.cos(φ1)*Math.sin(d/R)*Math.cos(θ));
+  const λ2 = λ1 + Math.atan2(Math.sin(θ)*Math.sin(d/R)*Math.cos(φ1), Math.cos(d/R)-Math.sin(φ1)*Math.sin(φ2));
+  return [φ2*180/Math.PI, λ2*180/Math.PI];
+}
+
+// ── STRIKE LAYER MANAGEMENT ───────────────────────────────────────────────────
+let strikeLayers = [];
+
+function clearStrikeLayers(){
+  strikeLayers.forEach(l=>map.removeLayer(l));
+  strikeLayers = [];
+}
+
+// Color by age
+function strikeColor(ts){
+  const cls = ageClass(ts);
+  if(cls==='recent') return '#f5c842';
+  if(cls==='mid')    return '#f08030';
+  return '#4a7aaa';
+}
+
+let mapAgeFilter = 'all'; // 'all' | '10' | '30'
+
+function renderMapStrikes(){
+  clearStrikeLayers();
+  const strikes = loadStrikes();
+  const now = Date.now();
+
+  // Filter
+  const filtered = strikes.filter(s=>{
+    if(mapAgeFilter==='10')  return (now-s.ts)/60000 <= 10;
+    if(mapAgeFilter==='30')  return (now-s.ts)/60000 <= 30;
+    return true;
+  });
+
+  let hasDistant = false;
+  let closest = null;
+
+  filtered.forEach((s, idx)=>{
+    if(s.bear===null) return;          // no heading → can't plot
+    if(s.distMi > MAX_DIST_MI){ hasDistant=true; return; }
+
+    const [sLat, sLon] = strikeLatLon(userLat, userLon, s.bear, s.distMi);
+    const color = strikeColor(s.ts);
+
+    // Bearing dashed line from user to strike
+    const line = L.polyline([[userLat,userLon],[sLat,sLon]],{
+      color, weight:1, opacity:0.3, dashArray:'6 5', interactive:false,
+    });
+    map.addLayer(line);
+    strikeLayers.push(line);
+
+    // Uncertainty ellipse
+    const ellipse = makeEllipsePolygon(sLat, sLon, s.bear, s.distMi, color);
+    map.addLayer(ellipse);
+    strikeLayers.push(ellipse);
+
+    // Center dot
+    const dot = makeStrikeCenter(sLat, sLon, color);
+    map.addLayer(dot);
+    strikeLayers.push(dot);
+
+    // Label on most recent only
+    if(idx===0){
+      const label = L.marker([sLat,sLon],{
+        icon: L.divIcon({
+          className:'',
+          html:`<div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:${color};
+            white-space:nowrap;margin-left:8px;margin-top:-6px;text-shadow:0 0 4px #000;">
+            ⚡ ${s.distMi.toFixed(2)}mi</div>`,
+          iconSize:[0,0], iconAnchor:[0,0],
+        }),
+        interactive:false,
+      });
+      map.addLayer(label);
+      strikeLayers.push(label);
+    }
+
+    if(closest===null || s.distMi < closest.distMi) closest = s;
+  });
+
+  updateMapStrip(filtered, closest, hasDistant);
+}
+
+// ── MAP BOTTOM STRIP ──────────────────────────────────────────────────────────
+function updateMapStrip(strikes, closest, hasDistant){
+  const obsEl  = document.querySelector('.map-strip .ms:nth-child(1) .ms-val');
+  const cloEl  = document.querySelector('.map-strip .ms:nth-child(2) .ms-val');
+  const dirEl  = document.querySelector('.map-strip .ms:nth-child(3) .ms-val');
+  const trendEl= document.querySelector('.map-strip .ms:nth-child(4) .ms-val');
+  const alertEl= document.querySelector('.approach-alert');
+
+  if(obsEl) obsEl.textContent = strikes.length;
+
+  if(closest){
+    if(cloEl) cloEl.textContent = closest.distMi.toFixed(2)+' mi';
+    if(dirEl){ dirEl.textContent = closest.card||'---'; dirEl.className='ms-val cy'; }
+  } else {
+    if(cloEl) cloEl.textContent = '—';
+    if(dirEl){ dirEl.textContent = '—'; dirEl.className='ms-val'; }
+  }
+
+  // Trend from full strike list
+  const all = loadStrikes().filter(s=>s.bear!==null);
+  if(all.length>=2){
+    const delta = all[0].distMi - all[1].distMi;
+    if(Math.abs(delta)<0.05){
+      if(trendEl){ trendEl.textContent='→ STEADY'; trendEl.className='ms-val'; }
+      if(alertEl) alertEl.style.display='none';
+    } else if(delta<0){
+      if(trendEl){ trendEl.textContent='▼ CLOSER'; trendEl.className='ms-val rd'; }
+      if(alertEl) alertEl.style.display='flex';
+    } else {
+      if(trendEl){ trendEl.textContent='▲ FARTHER'; trendEl.className='ms-val gn'; }
+      if(alertEl) alertEl.style.display='none';
+    }
+  } else {
+    if(trendEl){ trendEl.textContent='—'; trendEl.className='ms-val'; }
+    if(alertEl) alertEl.style.display='none';
+  }
+}
+
+// ── AGE FILTER BUTTONS ────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', ()=>{
+  const ageBtns = document.querySelectorAll('.map-controls .mc-btn');
+  ageBtns.forEach(btn=>{
+    const txt = btn.textContent.trim();
+    if(txt==='ALL'||txt==='10 MIN'||txt==='30 MIN'){
+      btn.addEventListener('click', ()=>{
+        ageBtns.forEach(b=>{ if(['ALL','10 MIN','30 MIN'].includes(b.textContent.trim())) b.classList.remove('active'); });
+        btn.classList.add('active');
+        mapAgeFilter = txt==='ALL' ? 'all' : txt.replace(' MIN','');
+        renderMapStrikes();
+      });
+    }
+  });
 });
 </script>
 </body>
