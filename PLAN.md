@@ -23,10 +23,13 @@ Blitzortung.org was identified as the best free community option for real strike
 Both require API keys. Keys in client-side code on a public GitHub repo is bad practice, and adding referrer restrictions is friction for a personal tool shared with a few people. OpenStreetMap + Leaflet is genuinely free, no key, CDN-loaded, and works everywhere in the world. Easy call.
 
 ### Static map — no pinch to zoom
-Pinch-to-zoom gets out of whack quickly on a phone, then you need a recenter button, and the UX complexity grows. The whole point of the map is spatial awareness of storm progression, not navigation. A locked static view at zoom 12 (~10–12 mile wide area) is cleaner and more useful for this purpose. One RE-CENTER button in the controls strip is the only escape hatch, as insurance against accidental drags.
+Pinch-to-zoom gets out of whack quickly on a phone, then you need a recenter button, and the UX complexity grows. The whole point of the map is spatial awareness of storm progression, not navigation. A locked static view at zoom 12 (~10–12 mile wide area) is cleaner and more useful for this purpose. One RE-CENTER button in the controls strip is the only escape hatch.
 
 ### Zoom level 12 as default
 This shows roughly a 10–12 mile wide area, which means ~5–6 mile radius from center. This aligns almost exactly with the 30-second thunder delay rule (30s × 343 m/s ≈ 6.3 miles). Strikes beyond that get logged with a DISTANT flag but aren't plotted — the map view doesn't need to stretch for them.
+
+### Tile provider: CartoDB Dark Matter
+Standard OSM tiles are light and colorful — they fight the dark UI hard. CartoDB Dark Matter is free, no API key required, CDN-loaded, and matches the `--bg:#080c10` aesthetic naturally. Decided during Session 1; can swap easily by changing the tile URL string.
 
 ### Ellipses centered on the strike point, not wedges from the observer
 Early mockup had comma/wedge shapes emanating from the user's position. This was wrong. The correct geometry is:
@@ -59,32 +62,36 @@ Applied consistently to log entries, ellipses, bearing lines, and trend bars.
 Option 2 is cleaner UX — you only need the compass when you're about to record a strike, so requesting permission at that moment is natural. If permission is denied or unavailable, bear saves as `null`, the strike still logs with distance only, and the map skips the ellipse for that entry (or shows a distance-only ring as a future enhancement).
 
 ### Single HTML file
-No build step, no npm, no bundler. Leaflet from CDN, fonts from Google Fonts CDN, everything else vanilla JS. Drop the file in a GitHub repo, enable Pages, done. Other people can open the URL with zero setup.
+No build step, no npm, no bundler. Leaflet from CDN, fonts from Google Fonts CDN, everything else vanilla JS. Drop the file in a GitHub repo, enable Pages, done.
 
 ---
 
 ## Development Sessions
 
-### Session 1 — Real Map
+### Session 1 — Real Map ✅ COMPLETE
 **Goal:** Leaflet + OSM rendering correctly centered on user location.
 
-Tasks:
-- Add Leaflet CSS + JS from CDN
-- Initialize map with all interaction disabled (dragging, touchZoom, scrollWheelZoom, doubleClickZoom, boxZoom, keyboard)
-- Call `navigator.geolocation.getCurrentPosition()` on load, center map on result
-- Fallback to a default location if geolocation denied/unavailable
-- Add RE-CENTER button wired to `map.setView([userLat, userLon], 12)`
-- Add "YOU ARE HERE" marker (pulsing cyan dot)
-- Confirm renders correctly in desktop browser and on phone over HTTPS
+**Completed:**
+- Leaflet 1.9.4 CSS + JS loaded from CDN
+- CartoDB Dark Matter tiles (decided during this session — no key, fits dark UI)
+- All interaction disabled: `dragging`, `touchZoom`, `scrollWheelZoom`, `doubleClickZoom`, `boxZoom`, `keyboard`, `tap`
+- `navigator.geolocation.getCurrentPosition()` fires on load; centers map on result
+- Fallback center: James Island / Charleston, SC (`32.7357, -79.9956`)
+- "ACQUIRING LOCATION…" overlay while waiting; hides on success; "LOCATION UNAVAILABLE" notice on failure (auto-hides after 3s)
+- Cyan pulsing "YOU ARE HERE" dot via `L.divIcon` with CSS `pulse-ring` animation
+- `⊕ CENTER` button calls `map.setView([userLat, userLon], 12)`
+- `showScreen('map')` calls `map.invalidateSize()` — required because Leaflet's container is hidden on initial load
+- `window.sm_map` exposes the map instance for cross-function access
+- Static `<img>` screenshot and SVG overlay fully removed
 
-Deliverable: Map tab shows real OSM tiles at your location. No strikes yet.
+**State of file:** `strikemap.html` is the live file. Mock flash/thunder timing buttons still present on RECORD tab — they will be replaced in Session 2.
 
 ---
 
-### Session 2 — Compass + Flash/Thunder → localStorage
+### Session 2 — Compass + Flash/Thunder → localStorage ← START HERE
 **Goal:** Core recording loop works end to end.
 
-Tasks:
+**Tasks:**
 - Wire `DeviceOrientationEvent` / `webkitCompassHeading` for iOS
 - Trigger permission request on first FLASH tap (not on page load)
 - Smooth heading with short rolling average to reduce jitter
@@ -94,7 +101,7 @@ Tasks:
 - Render strike in log immediately
 - Handle no-compass case gracefully: `bear: null`, `card: null`, log entry shows "NO BEARING"
 
-localStorage schema:
+**localStorage schema:**
 ```javascript
 {
   ts: Date.now(),   // timestamp at thunder tap
@@ -105,6 +112,15 @@ localStorage schema:
 }
 ```
 
+**Handoff notes for Session 2:**
+- `window.sm_map` = Leaflet map instance
+- `userLat` / `userLon` = live coordinates (set by geo success, fallback to James Island)
+- `placeUserMarker(lat, lon)` = moves the cyan dot
+- Mock flash/thunder functions (`mockFlash`, `mockThunder`) are in the current file — replace them entirely
+- `DeviceOrientationEvent.requestPermission()` must come from a user gesture; the FLASH tap satisfies this
+- Android/desktop: `deviceorientation` fires without a permission dialog — handle both paths
+- Compass requires HTTPS; `file://` won't work on mobile
+
 Deliverable: Full tap → log flow working on real phone. Data persists through page reload.
 
 ---
@@ -112,7 +128,7 @@ Deliverable: Full tap → log flow working on real phone. Data persists through 
 ### Session 3 — Ellipses on Real Map
 **Goal:** Computed strikes appear as correctly-shaped ellipses on the Leaflet map.
 
-Tasks:
+**Tasks:**
 - Implement destination point formula (spherical) to compute strike lat/lon from user position + bearing + distance
 - Build ellipse polygon from parametric points, rotated to bearing:
   - Radial half-axis: `TIMING_ERR_S * SOUND_MPS` meters (short axis)
@@ -121,7 +137,7 @@ Tasks:
 - Add faint dashed `L.polyline` from user to strike center
 - Add small `L.circleMarker` at strike center
 - Label most recent strike with distance
-- Handle `bear === null` strikes: skip ellipse, optionally show a thin distance ring (full circle at distMi radius) — keep simple for v1, may skip entirely
+- Handle `bear === null` strikes: skip ellipse, optionally show a thin distance ring (full circle at distMi radius)
 - Handle DISTANT strikes (>6.3mi): log entry gets DISTANT tag, no map plot, show notice banner on map tab
 - Wire age filter buttons (ALL / 10 MIN / 30 MIN) to re-render visible strikes
 - Confirm ellipse shape is correct: wide perpendicular to bearing, shallow along bearing
@@ -133,7 +149,7 @@ Deliverable: Strikes appear on real map as correctly oriented ellipses. Progress
 ### Session 4 — Polish + Deploy
 **Goal:** Everything live-updating and deployed.
 
-Tasks:
+**Tasks:**
 - Age colors update without user interaction (setInterval refresh every 30s)
 - Trend bar chart renders from active strikes, updates on new entry
 - Trend indicator: approaching / receding / steady based on last two strikes
@@ -171,6 +187,7 @@ const AGE_MID_MIN      = 15;     // orange threshold (older = blue-grey)
 - **Bearing-null ring**: for strikes recorded without compass, draw a thin full-circle arc at the computed distance so they appear on the map as "somewhere on this ring."
 - **Desktop layout**: two-column view (controls left, log/trend right). Couch mode on by default since no device compass on laptop. Manual lat/lon entry since IP geolocation is imprecise on desktop.
 - **Multiple observers**: if two people at known locations both record the same strike, triangulation becomes possible. Out of scope for now.
+- **Tile variants**: CartoDB Positron (light) or standard OSM if dark tiles ever feel wrong in daylight use.
 
 ---
 
@@ -179,5 +196,7 @@ const AGE_MID_MIN      = 15;     // orange threshold (older = blue-grey)
 | File | Description |
 |---|---|
 | `PLAN.md` | This document |
+| `NOTES.md` | Implementation decisions and gotchas discovered during development |
 | `STRIKEMAP_HANDOFF.md` | Geometry, schema, tech stack reference |
-| `strikemap-mockup.html` | Full UI mockup — visual reference for all sessions |
+| `strikemap-mockup.html` | Full UI mockup — visual reference, do not edit |
+| `strikemap.html` | **Live file — source of truth** |
