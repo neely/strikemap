@@ -59,7 +59,21 @@ Applied consistently to log entries, ellipses, bearing lines, and trend bars.
 1. Dedicated "Enable Compass" button on first open
 2. Trigger permission on first FLASH tap
 
-Option 2 is cleaner UX — you only need the compass when you're about to record a strike, so requesting permission at that moment is natural. If permission is denied or unavailable, bear saves as `null`, the strike still logs with distance only, and the map skips the ellipse for that entry (or shows a distance-only ring as a future enhancement).
+Option 2 is cleaner UX — you only need the compass when you're about to record a strike, so requesting permission at that moment is natural. If permission is denied or unavailable, bear saves as `null`, the strike still logs with distance only, and the map skips the ellipse for that entry.
+
+### Compass UX: tap-to-lock instead of lock-on-flash
+Early design locked the heading at the moment the FLASH button was tapped. Problem: the user sees the flash and taps reflexively — they haven't yet pointed the phone. The correct flow is:
+
+1. Tap FLASH → starts timer, compass goes live (bezel rotating freely)
+2. Swing phone toward where lightning was, hold still
+3. Tap compass ring to lock — display snaps to green "✓ NNE"
+4. Set phone down, wait for thunder
+5. Tap HEARD THUNDER
+
+Tapping compass again while locked will unlock it, allowing re-aim. If user never taps compass before HEARD THUNDER, strike logs with `bear: null` (distance-only).
+
+### Compass display: rotating bezel, no needle
+A spinning needle pointing at a fixed angle on screen is confusing — it implies a direction relative to the phone that doesn't match real-world bearing. Replaced with a rotating bezel (N/S/E/W ring rotates opposite to heading so N always faces north, like a real compass) plus a fixed yellow lubber line at 12 o'clock marking where the phone is pointing. Center shows only degrees + cardinal text (e.g. `043° ENE`). N label is red per standard compass convention.
 
 ### Single HTML file
 No build step, no npm, no bundler. Leaflet from CDN, fonts from Google Fonts CDN, everything else vanilla JS. Drop the file in a GitHub repo, enable Pages, done.
@@ -73,7 +87,7 @@ No build step, no npm, no bundler. Leaflet from CDN, fonts from Google Fonts CDN
 
 **Completed:**
 - Leaflet 1.9.4 CSS + JS loaded from CDN
-- CartoDB Dark Matter tiles (decided during this session — no key, fits dark UI)
+- CartoDB Dark Matter tiles (no key, fits dark UI)
 - All interaction disabled: `dragging`, `touchZoom`, `scrollWheelZoom`, `doubleClickZoom`, `boxZoom`, `keyboard`, `tap`
 - `navigator.geolocation.getCurrentPosition()` fires on load; centers map on result
 - Fallback center: James Island / Charleston, SC (`32.7357, -79.9956`)
@@ -84,24 +98,30 @@ No build step, no npm, no bundler. Leaflet from CDN, fonts from Google Fonts CDN
 - `window.sm_map` exposes the map instance for cross-function access
 - Static `<img>` screenshot and SVG overlay fully removed
 
-**State of file:** `strikemap.html` is the live file. Mock flash/thunder timing buttons still present on RECORD tab — they will be replaced in Session 2.
-
 ---
 
-### Session 2 — Compass + Flash/Thunder → localStorage ← START HERE
+### Session 2 — Compass + Flash/Thunder → localStorage ✅ COMPLETE
 **Goal:** Core recording loop works end to end.
 
-**Tasks:**
-- Wire `DeviceOrientationEvent` / `webkitCompassHeading` for iOS
-- Trigger permission request on first FLASH tap (not on page load)
-- Smooth heading with short rolling average to reduce jitter
-- Lock heading on FLASH tap, display locked value
-- FLASH starts timer, THUNDER stops it, calculates delay + distance
-- Write strike object to localStorage on THUNDER tap
-- Render strike in log immediately
-- Handle no-compass case gracefully: `bear: null`, `card: null`, log entry shows "NO BEARING"
+**Completed:**
+- `DeviceOrientationEvent` / `webkitCompassHeading` wired for iOS and Android
+- Compass permission requested on first FLASH tap (user gesture satisfies iOS requirement)
+- 8-sample circular mean heading buffer for jitter smoothing
+- Rotating bezel compass (no needle) — bezel rotates opposite to heading, N always faces north
+- Fixed yellow lubber line at 12 o'clock marks phone's forward direction
+- Compass ring is a `<button>` — tap to lock heading (green "✓ NNE"), tap again to unlock
+- `bearingArmed` flag: compass only accepts lock taps after FLASH is pressed
+- FLASH: starts timer, sets `bearingArmed = true`, compass goes live
+- THUNDER: captures locked bearing (or null), computes delay + distance, writes to localStorage, renders log
+- Bearing captured at top of `onThunder()` before any state is cleared (important ordering)
+- `bear: null` handled gracefully throughout — logs as "--- NO HDG", skipped on map
+- Trend bar chart from up to 8 most recent strikes, colored by age
+- Approaching / receding / steady indicator from last two strikes
+- CLEAR button with `confirm()` dialog, wipes localStorage
+- Timestamps refresh every 30s via `setInterval`
+- `renderMapStrikes()` called on MAP tab switch
 
-**localStorage schema:**
+**localStorage schema (unchanged from plan):**
 ```javascript
 {
   ts: Date.now(),   // timestamp at thunder tap
@@ -112,37 +132,36 @@ No build step, no npm, no bundler. Leaflet from CDN, fonts from Google Fonts CDN
 }
 ```
 
-**Handoff notes for Session 2:**
-- `window.sm_map` = Leaflet map instance
-- `userLat` / `userLon` = live coordinates (set by geo success, fallback to James Island)
-- `placeUserMarker(lat, lon)` = moves the cyan dot
-- Mock flash/thunder functions (`mockFlash`, `mockThunder`) are in the current file — replace them entirely
-- `DeviceOrientationEvent.requestPermission()` must come from a user gesture; the FLASH tap satisfies this
-- Android/desktop: `deviceorientation` fires without a permission dialog — handle both paths
-- Compass requires HTTPS; `file://` won't work on mobile
-
-Deliverable: Full tap → log flow working on real phone. Data persists through page reload.
+**Current constants in file:**
+```javascript
+const SOUND_MPS       = 343;
+const MI_PER_M        = 0.000621371;
+const MAX_DIST_MI     = 6.2;
+const TIMING_ERR_S    = 0.25;    // ±250ms
+const BEARING_ERR_DEG = 5;       // ±5°
+const LS_KEY          = 'sm_strikes';
+```
 
 ---
 
-### Session 3 — Ellipses on Real Map
+### Session 3 — Ellipses on Real Map ← START HERE
 **Goal:** Computed strikes appear as correctly-shaped ellipses on the Leaflet map.
 
-**Tasks:**
-- Implement destination point formula (spherical) to compute strike lat/lon from user position + bearing + distance
-- Build ellipse polygon from parametric points, rotated to bearing:
-  - Radial half-axis: `TIMING_ERR_S * SOUND_MPS` meters (short axis)
-  - Tangential half-axis: `sin(BEARING_ERR_DEG * π/180) * distMi * 1609` meters (long axis)
-- Render as `L.polygon` with correct color per age class
-- Add faint dashed `L.polyline` from user to strike center
-- Add small `L.circleMarker` at strike center
-- Label most recent strike with distance
-- Handle `bear === null` strikes: skip ellipse, optionally show a thin distance ring (full circle at distMi radius)
-- Handle DISTANT strikes (>6.3mi): log entry gets DISTANT tag, no map plot, show notice banner on map tab
-- Wire age filter buttons (ALL / 10 MIN / 30 MIN) to re-render visible strikes
-- Confirm ellipse shape is correct: wide perpendicular to bearing, shallow along bearing
+**Status:** Core geometry is already implemented in `strikemap.html`:
+- `strikeLatLon(lat, lon, bearingDeg, distMi)` — spherical destination point formula ✓
+- `makeEllipsePolygon(lat, lon, bearingDeg, distMi, color)` — parametric ellipse, tangential/radial axes, rotated to bearing ✓
+- `renderMapStrikes()` — reads localStorage, filters by age, draws lines + ellipses + dots ✓
 
-Deliverable: Strikes appear on real map as correctly oriented ellipses. Progression visible as storm moves.
+**Remaining tasks:**
+- Fix age filter button active-state toggle (currently matches on text content, fragile)
+- Wire APPROACHING alert visibility — doesn't reset on CLEAR ALL
+- Add DISTANT notice banner on map tab for strikes > `MAX_DIST_MI`
+- Add `fetchExternalStrikes()` stub returning `[]`
+- Verify ellipse shape in field: wide perpendicular to bearing, shallow along bearing
+- Handle `bear === null` strikes on map — currently skipped entirely; consider thin distance ring (full circle at distMi)
+- Age colors on map currently only update on tab switch or new strike — extend 30s setInterval to also call `renderMapStrikes()` and update OBS badge
+
+**Deliverable:** Strikes appear on real map as correctly oriented ellipses. Progression visible as storm moves.
 
 ---
 
@@ -150,33 +169,27 @@ Deliverable: Strikes appear on real map as correctly oriented ellipses. Progress
 **Goal:** Everything live-updating and deployed.
 
 **Tasks:**
-- Age colors update without user interaction (setInterval refresh every 30s)
-- Trend bar chart renders from active strikes, updates on new entry
-- Trend indicator: approaching / receding / steady based on last two strikes
-- Map bottom strip: OBS count, closest distance, direction, trend arrow, APPROACHING alert
-- APPROACHING alert animates when storm is getting closer
-- CLEAR button with confirmation dialog
-- Add `fetchExternalStrikes()` stub returning `[]` with a console note
-- Test on iOS: geolocation prompt, compass permission flow, rendering
-- Test on Android: compass typically works without permission dialog
+- Age colors update without user interaction (extend existing 30s setInterval)
+- Map bottom strip all fields live
+- APPROACHING alert animates and resets correctly
+- Test on iOS: geolocation prompt, compass permission flow, bezel rotation, tap-to-lock
+- Test on Android: compass works without permission dialog
 - Deploy to GitHub Pages (rename to `index.html`, push, enable Pages)
 - Confirm all features work over HTTPS on real device
 
-Deliverable: Shareable URL, works on any phone.
+**Deliverable:** Shareable URL, works on any phone.
 
 ---
 
 ## Tunable Constants (top of script block)
 
 ```javascript
-const SOUND_MPS        = 343;     // m/s speed of sound
-const MI_PER_M         = 0.000621371;
-const MAP_ZOOM         = 12;      // ~10-12mi view
-const FAR_MI           = 6.2;    // beyond this → DISTANT, not plotted
-const BEARING_ERR_DEG  = 5;      // ±° compass wobble — tune after field testing
-const TIMING_ERR_S     = 0.25;   // ±s human reaction time on both taps
-const AGE_RECENT_MIN   = 5;      // yellow threshold
-const AGE_MID_MIN      = 15;     // orange threshold (older = blue-grey)
+const SOUND_MPS       = 343;          // m/s speed of sound
+const MI_PER_M        = 0.000621371;
+const MAX_DIST_MI     = 6.2;          // beyond this → DISTANT, not plotted
+const BEARING_ERR_DEG = 5;            // ±° compass wobble — tune after field testing
+const TIMING_ERR_S    = 0.25;         // ±s human reaction time on both taps
+// Age thresholds are hardcoded in ageClass() — < 5min = recent, < 15min = mid, else old
 ```
 
 ---
