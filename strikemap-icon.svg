@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Subtle radial glow behind the whole scene -->
+    <radialGradient id="bg-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1a1200" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="1"/>
+    </radialGradient>
+
+    <!-- Yellow glow filter for the bolt -->
+    <filter id="bolt-glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Softer glow for ring highlights -->
+    <filter id="ring-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Clip to circle for icon shape -->
+    <clipPath id="icon-clip">
+      <circle cx="256" cy="256" r="256"/>
+    </clipPath>
+  </defs>
+
+  <!-- Black background with warm centre glow -->
+  <circle cx="256" cy="256" r="256" fill="url(#bg-glow)"/>
+
+  <!-- ── BULLSEYE RINGS ──
+       Centred at 256,256. Rings from outside in:
+       r=210 (outermost, dim), r=162, r=114, r=66 (inner), r=28 (bull, solid red/orange)
+       Each ring is a stroked circle, no fill, layered so bolt sits on top.
+  -->
+
+  <!-- Ring 4 — outermost -->
+  <circle cx="256" cy="256" r="210"
+    fill="none" stroke="#4a7aaa" stroke-width="6" opacity="0.45"
+    filter="url(#ring-glow)"/>
+
+  <!-- Ring 3 -->
+  <circle cx="256" cy="256" r="162"
+    fill="none" stroke="#f08030" stroke-width="7" opacity="0.55"
+    filter="url(#ring-glow)"/>
+
+  <!-- Ring 2 -->
+  <circle cx="256" cy="256" r="114"
+    fill="none" stroke="#f5c842" stroke-width="8" opacity="0.7"
+    filter="url(#ring-glow)"/>
+
+  <!-- Ring 1 — inner -->
+  <circle cx="256" cy="256" r="66"
+    fill="none" stroke="#f5c842" stroke-width="10" opacity="0.9"
+    filter="url(#ring-glow)"/>
+
+  <!-- Bull — solid filled dot -->
+  <circle cx="256" cy="256" r="22"
+    fill="#e03030" opacity="0.95"
+    filter="url(#ring-glow)"/>
+
+  <!-- Crosshair lines — very faint, adds targeting feel without visual noise -->
+  <line x1="256" y1="36" x2="256" y2="476" stroke="#5a7a8a" stroke-width="1.5" opacity="0.18"/>
+  <line x1="36" y1="256" x2="476" y2="256" stroke="#5a7a8a" stroke-width="1.5" opacity="0.18"/>
+
+  <!-- ── LIGHTNING BOLT ──
+       Thick, vertical, slightly left of center so the tip hits the bull.
+       Classic jagged two-segment bolt. Tip lands at (256, 256).
+       Top at (220, 90). Knee at (268, 230).
+       The bolt is drawn with a thick white-hot core and a yellow outer shape.
+  -->
+
+  <!-- Outer bolt — yellow, wide -->
+  <polygon
+    points="220,90 248,228 228,228 268,390 292,390 262,232 282,232 252,90"
+    fill="#f5c842"
+    filter="url(#bolt-glow)"
+    opacity="0.95"/>
+
+  <!-- Inner bolt — white hot core, narrower -->
+  <polygon
+    points="230,105 248,228 236,228 268,370 278,370 262,232 274,232 252,105"
+    fill="#ffffff"
+    opacity="0.85"/>
+
+  <!-- Impact star at tip — small starburst where bolt hits bull -->
+  <!-- Four short diagonal streaks emanating from 268,380 (bolt tip) -->
+  <g transform="translate(268,378)" opacity="0.7" filter="url(#bolt-glow)">
+    <line x1="-12" y1="-12" x2="-22" y2="-22" stroke="#f5c842" stroke-width="3" stroke-linecap="round"/>
+    <line x1="12" y1="-12" x2="22" y2="-22" stroke="#f5c842" stroke-width="3" stroke-linecap="round"/>
+    <line x1="-14" y1="0" x2="-26" y2="0" stroke="#f5c842" stroke-width="3" stroke-linecap="round"/>
+    <line x1="14" y1="0" x2="26" y2="0" stroke="#f5c842" stroke-width="3" stroke-linecap="round"/>
+    <line x1="0" y1="10" x2="0" y2="22" stroke="#f5c842" stroke-width="3" stroke-linecap="round"/>
+  </g>
+</svg>
