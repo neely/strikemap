@@ -275,3 +275,18 @@ The TRENDS tab elements don't exist in the DOM when RECORD or MAP is active. `re
 
 ### `if(window.sm_map)` guard in the interval callback
 `renderMapStrikes()` uses the Leaflet `map` instance. The 30s interval fires unconditionally, including before the map might be fully initialized in edge cases. The guard prevents a crash if something went wrong during Leaflet init. Same pattern used in the clear-all handler and per-entry delete.
+
+---
+
+## Post-Deploy Cleanup (July 2026)
+
+### SVG icon only filled a circle, not the full canvas
+The icon's outer shape was a circle (`r=256`) centered in a 512×512 `viewBox`. That circle touches all four edges at their midpoints but leaves the four corners of the square canvas outside it — transparent. iOS doesn't respect transparency in home-screen icons; it fills transparent regions with white before applying its own rounded-square mask. Result: white corners peeking out around the circular icon on the home screen.
+
+Fix: added an opaque `<rect>` covering the full 512×512 canvas, filled with `#080c10` (same as the app's `--bg` CSS variable), placed behind the existing circular glow. Re-rendered both `strikemap-icon-180.png` (apple-touch-icon) and the README's larger PNG from the corrected SVG. Also makes the README icon render consistently regardless of GitHub's light/dark theme, since it's no longer relying on the page background showing through.
+
+### XML comments can't contain `--` anywhere in the body
+Hit this while adding a comment referencing the CSS `--bg` variable name — `<!-- ... --bg ... -->` is invalid XML (a double-hyphen is only legal as part of the closing `-->`), and cairosvg's strict XML parser rejected the whole file. Rewrote the comment to avoid the literal `--` sequence.
+
+### `icons/` renamed to `img/`
+The folder never held an actual app-functional icon (those live at repo root — `strikemap-icon.svg`, `strikemap-icon-180.png`) — it only ever held a larger PNG render used in the README. Renamed to `img/` since it's about to hold screenshots too, and the old name was actively misleading about what was in it.

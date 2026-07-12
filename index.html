@@ -10,6 +10,12 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Strikemap">
+<meta name="description" content="Real-time lightning tracking. Point at a flash, tap, tap again at thunder — get distance, bearing, and a live map of the storm.">
+<meta property="og:title" content="Strikemap">
+<meta property="og:description" content="Real-time lightning tracking. Point at a flash, tap, tap again at thunder — get distance, bearing, and a live map of the storm.">
+<meta property="og:image" content="https://strikemap.benneely.com/img/strikemap-icon-500.png">
+<meta property="og:url" content="https://strikemap.benneely.com">
+<meta name="twitter:card" content="summary">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -561,7 +567,7 @@ function renderLog(){
         <div class="s-bearing ${cls}">${s.card||'---'}</div>
         <div class="s-time">${relTime(s.ts)}</div>
       </div>
-      <button class="s-delete" onclick="deleteSingleStrike(${s.ts})" title="Delete">✕</button>
+      <button class="s-delete" onclick="deleteSingleStrike(${s.ts})" title="Delete" aria-label="Delete strike">✕</button>
     </div>`;
   }).join('');
 

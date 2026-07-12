@@ -31,6 +31,11 @@
     </clipPath>
   </defs>
 
+  <!-- Opaque square background — fills full canvas so home-screen icons
+       and light-mode README rendering never show transparent/white corners.
+       Matches the app's bg CSS variable (#080c10). -->
+  <rect x="0" y="0" width="512" height="512" fill="#080c10"/>
+
   <!-- Black background with warm centre glow -->
   <circle cx="256" cy="256" r="256" fill="url(#bg-glow)"/>
 

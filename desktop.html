@@ -7,6 +7,12 @@
 <link rel="icon" href="strikemap-icon.svg">
 <link rel="apple-touch-icon" href="strikemap-icon-180.png">
 <meta name="theme-color" content="#080c10">
+<meta name="description" content="Real-time lightning tracking, desktop companion. Interactive map, manual location entry, couch mode by default.">
+<meta property="og:title" content="Strikemap — Desktop">
+<meta property="og:description" content="Real-time lightning tracking, desktop companion. Interactive map, manual location entry, couch mode by default.">
+<meta property="og:image" content="https://strikemap.benneely.com/img/strikemap-icon-500.png">
+<meta property="og:url" content="https://strikemap.benneely.com/desktop.html">
+<meta name="twitter:card" content="summary">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -692,7 +698,7 @@ function renderLog(){
         <div class="s-bearing ${cls}">${s.card||'---'}</div>
         <div class="s-time">${relTime(s.ts)}</div>
       </div>
-      <button class="s-delete" onclick="deleteSingleStrike(${s.ts})" title="Delete">✕</button>
+      <button class="s-delete" onclick="deleteSingleStrike(${s.ts})" title="Delete" aria-label="Delete strike">✕</button>
     </div>`;
   }).join('');
 

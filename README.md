@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="icons/strikemap-icon-500.png" width="180" alt="Strikemap icon" />
+  <img src="img/strikemap-icon-500.png" width="180" alt="Strikemap icon" />
 
   # Strikemap
 
@@ -56,7 +56,7 @@ The intersection of the wedge and the band is the actual uncertainty region for 
 | `NOTES.md` | Implementation notes and gotchas from each build session |
 | `strikemap-icon.svg` | App icon master (512×512 SVG) — used as favicon |
 | `strikemap-icon-180.png` | Apple touch icon (180×180 PNG, rendered from the SVG) |
-| `icons/` | Larger PNG render of the icon, used in this README |
+| `img/` | README imagery — icon render, screenshots |
 | `LICENSE.md` | PolyForm Noncommercial 1.0.0 |
 
 ## Stack

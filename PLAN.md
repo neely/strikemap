@@ -329,9 +329,23 @@ const TREND_BAR_MIN_PCT  = 20;     // minimum bar height % in trend chart
 |---|---|
 | `PLAN.md` | This document |
 | `NOTES.md` | Implementation decisions and gotchas discovered during development |
-| `STRIKEMAP_HANDOFF.md` | Full geometry, schema, and session-by-session reference |
-| `strikemap-mockup.html` | Full UI mockup — visual reference only, do not edit |
-| `strikemap.html` | **Mobile live file — rename to `index.html` for deploy** |
-| `strikemap-desktop.html` | **Desktop live file** |
+| `README.md` | Project overview, live URLs, geometry explanation |
+| `strikemap-mockup.html` | Original UI mockup — historical artifact, not the live app |
+| `index.html` | **Mobile live file** |
+| `desktop.html` | **Desktop live file** |
 | `strikemap-icon.svg` | App icon master (512×512 SVG) |
-| `strikemap-icon-180.png` | Apple touch icon (180×180 PNG) |
+| `strikemap-icon-180.png` | Apple touch icon (180×180 PNG, rendered from the SVG) |
+| `img/` | README imagery — icon render, screenshots |
+| `LICENSE.md` | PolyForm Noncommercial 1.0.0 |
+
+---
+
+## Post-Deploy Cleanup (July 2026)
+
+A fresh-eyes pass after the initial deploy, checked against the [App Patterns field guide](https://neely.github.io/patterns/) (Strikemap is a clean fit for **Pattern 1** — static single-file, `localStorage`-only state, reset-is-the-design; not yet listed as an example there):
+
+- **File organization** — renamed `icons/` to `img/` since that folder only ever held README imagery (never an app-functional icon), and it's about to hold screenshots too.
+- **Icon background fix** — the SVG only filled a circle inscribed in the 512×512 canvas, leaving the four corners transparent. iOS fills transparent home-screen icon corners with white, which looked wrong. Added an opaque square background rect (matching the app's `--bg` color, `#080c10`) behind the circular glow, then re-rendered both PNGs. Also fixes inconsistent appearance in light-mode GitHub rendering.
+- **Open Graph / meta description tags** — added to both `index.html` and `desktop.html` so shared links get a proper title/description/preview image instead of nothing.
+- **Accessibility** — the per-entry delete button (`✕`) only had a `title` attribute; added `aria-label="Delete strike"` for screen readers. Everything else already had visible text labels.
+- **Constants audit** — confirmed `SOUND_MPS`, `MAX_DIST_MI`, `BEARING_ERROR_DEG`, `TIMING_ERROR_S`, `EXPIRE_MIN`, `TREND_BAR_MIN_PCT`, and `LS_KEY` are identical between `index.html` and `desktop.html` — no drift between the two files.
