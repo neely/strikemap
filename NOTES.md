@@ -25,7 +25,7 @@ James Island / Charleston, SC: `32.7357, -79.9956`. This is where the original m
 The Leaflet instance is assigned to `window.sm_map` so it's accessible across script scopes without module imports. Follow the same pattern for any other global state that needs cross-function access.
 
 ### Geolocation fires on page load
-Geolocation prompts immediately on open — no user gesture required (on most browsers). This is intentional. You want the map centered before you need it. Compass is different — it waits for user gesture. Don't merge these into a single permission flow.
+Geolocation prompts immediately on open — no user gesture required (on most browsers). This is intentional. You want the map centered before you need it. Compass is different — it waits for first compass tap. Don't merge these into a single permission flow.
 
 ### Attribution styling
 CartoDB requires OSM + CARTO attribution. Styled small and dim (`font-size:7px`, `color:var(--dim)`, semi-transparent background) so it doesn't intrude. Don't remove it — it's a licensing requirement.
@@ -35,10 +35,10 @@ CartoDB requires OSM + CARTO attribution. Styled small and dim (`font-size:7px`,
 ## Session 2 — Compass + Flash/Thunder
 
 ### Compass permission must come from a user gesture
-`DeviceOrientationEvent.requestPermission()` on iOS 13+ will silently fail if called outside a user gesture handler. Wired to the first FLASH tap — natural moment, satisfies the requirement. Do not move it to page load or DOMContentLoaded.
+`DeviceOrientationEvent.requestPermission()` on iOS 13+ will silently fail if called outside a user gesture handler. Originally wired to the first FLASH tap. Moved in Session 4b to the first compass ring tap — see Session 4b notes below for full rationale.
 
 ### `compassPermissionAsked` flag prevents double-prompting
-Set to `true` on the first FLASH tap. Subsequent FLASH taps skip the permission call. Without this, every FLASH tap would re-trigger the iOS dialog.
+Set to `true` on first call to `requestCompassPermission()`. Subsequent taps skip the permission call. Without this, every compass tap would re-trigger the iOS dialog.
 
 ### Android compass requires no permission dialog
 On Android, `deviceorientation` fires immediately after `addEventListener` — no dialog, no async. Same `startCompass()` function handles both paths.
@@ -47,7 +47,7 @@ On Android, `deviceorientation` fires immediately after `addEventListener` — n
 `lockedHeading` is cleared as part of resetting state in `onThunder()`. The bearing must be read into a local variable **before** any state mutation. If you refactor `onThunder()`, keep this at the very top.
 
 ### `bearingArmed` flag controls when compass tap-to-lock is active
-The compass ring is always visible and its bezel always rotates, but tapping it does nothing unless `bearingArmed === true`. Set by `onFlash()`, cleared by `onThunder()`. Prevents accidental bearing locks outside a recording session.
+The compass ring is always visible and its bezel always rotates (once enabled), but tapping it does nothing unless `bearingArmed === true` or `lockedHeading !== null`. Set by `onFlash()`, cleared by `onThunder()`. Prevents accidental bearing locks outside a recording session.
 
 ### Circular mean for heading smoothing — not arithmetic mean
 Arithmetic mean breaks near the 0°/360° boundary. Example: averaging 355° and 5° arithmetically gives 180°, which is completely wrong. Circular mean via `sin/cos` decomposition gives the correct 0°. Already in `pushHeading()` — don't simplify it.
@@ -55,14 +55,14 @@ Arithmetic mean breaks near the 0°/360° boundary. Example: averaging 355° and
 ### `bear: null` must be handled gracefully everywhere
 Three places where null bearing appears:
 1. **Log entry**: displays "--- NO HDG" in the meta line, cardinal shows "---"
-2. **Map**: skips pizza crust + bearing line; renders bullseye ring instead (Session 4)
+2. **Map**: skips pizza crust + bearing line; renders annular donut instead
 3. **Map strip DIRECTION**: shows "—" when closest strike has null bearing — correct, not a bug
 
 ### Trend uses newest-first array order
 Strikes are stored newest-first (`arr.unshift()`). Trend comparison is `strikes[0].distMi - strikes[1].distMi` — negative means getting closer. Don't sort the array on read; insertion order is the sort.
 
 ### HEARD THUNDER must be inert until FLASH is tapped
-The THUNDER button should do nothing if `flashTime` is null. The `armed` class is only added by the FLASH handler, not present in HTML at load. (This was a bug that lingered into Session 3 — make sure the HTML has no `armed` class on the button.)
+The THUNDER button should do nothing if `flashTime` is null. The `armed` class is only added by the FLASH handler, not present in HTML at load. Verified in Session 4 — HTML has no `armed` class on the button.
 
 ---
 
@@ -70,50 +70,87 @@ The THUNDER button should do nothing if `flashTime` is null. The `armed` class i
 
 ### Ellipses were geometrically wrong — replaced with annular sector
 The original ellipse approach had two fundamental errors:
-1. **Wrong origin.** Ellipses were centered on the strike point. Both error sources (bearing wobble, timing tap) fan outward from the *observer*, not from the strike. The correct shape must be referenced from the user's position.
-2. **Wrong coordinate system.** Bearing and distance errors are polar. Projecting them into cartesian space and fitting an ellipse loses the actual shape — it implies equal uncertainty in all directions from the strike, which isn't true.
+1. **Wrong origin.** Ellipses were centered on the strike point. Both error sources (bearing wobble, timing tap) fan outward from the *observer*, not from the strike.
+2. **Wrong coordinate system.** Bearing and distance errors are polar. Fitting a cartesian ellipse loses the actual shape.
 
-The correct shape is a **pizza crust** (annular sector):
-- Bearing error defines a wedge (two rays at `bearing ± 5°` from observer). Wedge fans out with distance.
-- Timing error defines an annular band (inner/outer arcs at `dist ± 0.107mi`). Constant depth.
-- Intersection is the uncertainty region. Built as an `L.polygon` using ~26 projected points.
+The correct shape is a **pizza crust** (annular sector) — see PLAN.md for full geometry.
 
 ### Timing error revised to ±500ms
-Original plan used ±250ms. Revised to ±500ms as a more realistic assumption for human tap reaction, especially when startled by thunder. This gives `±0.107mi` depth on the pizza crust (was `±0.053mi`). Depth is still small relative to the wedge width at any meaningful distance.
+Original plan used ±250ms. Revised to ±500ms as a more realistic assumption for human tap reaction, especially when startled by thunder. Gives `±0.107mi` depth on the pizza crust. Depth is still small relative to wedge width at any meaningful distance.
 
 ### Pizza crust collapses to wedge at very close range
-If `dist < 0.107mi` (thunder under ~0.5 seconds, strike under ~560 feet), the inner arc clamps to zero via `Math.max(0, innerDist)` and the shape becomes a pure triangle/wedge. This edge case almost never fires in practice.
-
-### `TIMING_ERR_S` and `BEARING_ERR_DEG` constants removed
-These were top-level constants in Session 2. After the geometry rewrite, the values are embedded directly in `makePizzaCrust()` with inline comments for clarity. If you need to tune them, they're in that function.
+If `dist < 0.107mi` (thunder under ~0.5 seconds), the inner arc clamps to zero via `Math.max(0, innerDist)` and the shape becomes a pure triangle/wedge. Edge case that almost never fires in practice.
 
 ### Age filter button bug was in text-content matching
-The original active-state toggle used `btn.textContent.trim()` to identify which buttons to deactivate. This accidentally matched the CENTER button if its text ever changed. Fixed by adding `data-age` attributes to the three filter buttons and scoping the toggle to `[data-age]` selector only.
+The original active-state toggle used `btn.textContent.trim()` to identify which buttons to deactivate. This accidentally matched the CENTER button. Fixed by adding `data-age` attributes to the three filter buttons and scoping the toggle to `[data-age]` selector only.
 
 ### APPROACHING alert had hardcoded `display:flex` in HTML
-The alert div started visible regardless of strike data. Fixed by setting `style="display:none;"` as the baseline HTML state. The `updateMapStrip()` JS function already had correct show/hide logic — it just needed a clean starting state so CLEAR ALL works correctly.
+Alert div started visible regardless of data. Fixed by setting `style="display:none;"` as baseline. JS in `updateMapStrip()` handles all show/hide.
 
 ### DISTANT notice — element + CSS were missing
-The handoff doc described a DISTANT banner but it wasn't in the HTML. Added `#distant-notice` div inside `.map-wrap` and CSS positioning it top-center of the map as an absolute overlay. Styled in blue-grey (`var(--old)`) to visually match old/far strikes. `updateMapStrip()` shows/hides it and sets the count text.
-
-### `fetchExternalStrikes()` stub added
-One-liner async function returning `[]`, placed after constants with a comment marking it as the Blitzortung hook. It's async so future implementations can `await fetch(...)` without touching call sites.
+Described in handoff but not in HTML. Added `#distant-notice` div inside `.map-wrap` and CSS positioning it top-center as absolute overlay. Styled in blue-grey to match old/far strike color.
 
 ---
 
-## Session 4 — Three Tabs + Couch Mode (UPCOMING)
+## Session 4 — Three Tabs + Couch Mode
 
-### Three-tab restructure is the biggest change in Session 4
-The tab split touches HTML structure, CSS layout rules, and nav wiring simultaneously. Do it first, get it rendering correctly, then add couch mode and bug fixes on top.
+### Three-tab restructure is the biggest layout change
+Split the original two-panel RECORD layout into RECORD (controls only) + TRENDS (log + chart). The two-column mockup layout is preserved for a future desktop version — don't try to merge them in the same responsive CSS.
 
-### Couch mode and `bear: null` are already the same code path
-The localStorage schema already supports `bear: null`. Couch mode is just an intentional UI path to that state — the map, log, and trend code already handle null bearing. The only new map rendering needed is the bullseye ring for null-bearing strikes (currently those strikes are silently skipped on the map).
+### `showScreen()` wiring
+- `showScreen('map')` → calls `map.invalidateSize()` then `renderMapStrikes()`
+- `showScreen('trends')` → calls `renderLog()` (which calls `renderTrend()` internally)
+- `showScreen('record')` → no data calls needed
 
-### Bullseye ring for null-bearing strikes
-Use `L.circle` centered on the user at `distMi * 1609.34` meters radius. Dashed stroke, age color, reduced fill opacity (`0.10`). Center dot still plotted. No label (direction unknown, so labeling the ring would be misleading). This communicates "definitely this far away, direction unknown" — visually a bullseye target ring.
+### Couch mode is a UI path to `bear === null`
+The localStorage schema always supported `bear: null`. Couch mode is just an intentional route to that state. The log, map, and trend code treat null bearing the same regardless of whether it came from couch mode or a missed compass lock.
 
-### Map legend may need to be collapsible
-Current position is `bottom:60px right:12px`. On a 390px wide phone (iPhone 14 standard), this can overlap pizza crusts in the NE quadrant at close distances. If it's a problem in field testing, add a tap-to-toggle with default collapsed state.
+### Couch mode does not persist across reload
+`couchMode` is a JS runtime variable — resets to `false` on reload. Intentional for now; if needed, persist to localStorage in a future session.
+
+### Map strip DIRECTION shows `—` for null-bearing closest strike
+If the closest active strike has `card: null` (couch mode or no compass lock), DIRECTION shows `—`. This is correct behavior — the app doesn't know direction. May surprise users who expect to always see something there.
+
+### Single `DOMContentLoaded` block — don't split it again
+At one point during Session 4 there were two `DOMContentLoaded` blocks (init in one, age filter listeners in the other). Merged into one. Keep it that way — splitting them causes initialization order confusion.
+
+### `setInterval(renderLog, 30000)` is unconditional
+Runs regardless of which tab is active. `renderLog()` is a no-op if the TRENDS elements aren't visible (it guards with `if(!logEl) return`). This is intentional — timestamps need to age even when the user is on the RECORD or MAP tab. Session 5 task: extend this interval to also call `renderMapStrikes()` and `updateObsBadge()`.
+
+---
+
+## Session 4b — Compass UX + Expiry + Donut
+
+### Compass permission moved from FLASH to compass ring tap
+**Why the change:** Geolocation fires on open (location prompt appears immediately). Originally, compass permission fired on the first FLASH tap. This meant on iOS you got two system dialogs — location on open, compass on first FLASH tap — which felt like a double interrogation.
+
+**New flow:** Compass ring shows `TAP TO START` with a cyan glow on open. First tap on the ring calls `requestCompassPermission()`. This separates the prompts in time and intent: location on open (makes sense — the map needs it), compass when you tap the thing that uses it (makes sense). On Android, the first tap silently starts the bezel, no dialog at all.
+
+**Implementation detail:** `onCompassTap()` now has a pre-permission branch: if `!compassPermissionAsked`, call `requestCompassPermission()` and return. Subsequent taps fall through to the normal lock/unlock logic.
+
+### `startCompass()` now calls `updateCompassDisplay()` after enabling
+Without this, Android users would tap the ring, compass would start silently, but the display would still show `TAP TO START` until the next `deviceorientation` event. Calling `updateCompassDisplay()` immediately in `startCompass()` clears the pre-permission state right away.
+
+### FLASH no longer calls `requestCompassPermission()`
+Removed the `if(!couchMode && !compassPermissionAsked) requestCompassPermission()` line from `onFlash()`. If someone taps FLASH without ever tapping the compass ring first, the compass just won't have a heading — strike saves with `bear: null`. This is acceptable; the UI flow makes clear you should tap the compass first.
+
+### Soft expiry — never hard-delete on load
+Hard-deleting expired strikes on page load was considered and rejected. Reason: if you accidentally reload the page mid-storm, you lose the last hour of data. Soft expiry keeps everything in localStorage; expiry is applied at render time. CLEAR ALL is the only mechanism for wiping data.
+
+### Expiry exclusion is layered: expired first, then age filter
+In `renderMapStrikes()`: first filter by `!isExpired(ts)` to get active strikes, then apply the age filter (10 MIN / 30 MIN / ALL) to that active subset. The age filter buttons never surface expired strikes even when ALL is selected.
+
+### Trend and OBS badge use active-only strikes
+`renderTrend()` receives the active-only subset from `renderLog()` — it doesn't call `loadStrikes()` itself. `updateObsBadge()` filters independently. `updateMapStrip()` also filters independently for its trend calculation. All three are consistent.
+
+### Annular donut replaces `L.circle` for null-bearing strikes
+`L.circle` draws a filled disc — wrong geometry. The correct shape is the same annular band as the pizza crust, just swept 360° instead of `bearing ± BEARING_ERROR_DEG`. Built as an `L.polygon` via `makeDonut()` using 36 steps for smooth appearance. Dashed stroke (`dashArray: '4 3'`) distinguishes it from directional pizza crusts at a glance. Fill opacity is 0.15 (vs 0.20 for pizza crust) to reflect lower information content.
+
+### `BEARING_ERROR_DEG` promoted to named constant, value raised to 10
+Was embedded as a hardcoded `5` inside `makePizzaCrust()` in Session 3. Promoted to a top-level named constant in Session 4b alongside `TIMING_ERROR_S` and `EXPIRE_MIN`. Value raised from 5 to 10 based on realistic assessment of phone-pointing accuracy in the field (holding a phone and swinging it toward a distant flash, possibly in the dark, in rain). To be tuned after actual field testing.
+
+### Map legend updated to reflect current values
+Legend text now reads: `WEDGE = ±10° BEARING ERROR`, `ARC DEPTH = ±500ms TIMING`, `DONUT = NO BEARING (COUCH)`. Keep this in sync if constants change.
 
 ---
 
@@ -160,4 +197,7 @@ Use circular mean, not arithmetic mean — arithmetic mean breaks near 0°/360°
 Strikes are stored newest-first (`array.unshift(newStrike)`). The log renders them in array order (newest at top). The map uses array order too — index 0 is always the most recent strike and gets the distance label. Don't sort on read; maintain order on write.
 
 ### Strike expiry is soft
-Strikes are never hard-deleted from localStorage on load. Expiry logic is applied at render time. If you want to clean up old sessions, CLEAR ALL is the mechanism.
+Strikes are never hard-deleted from localStorage on load. Expiry logic is applied at render time (`isExpired(ts)`). If you want to clean up old sessions, CLEAR ALL is the mechanism. `EXPIRE_MIN = 60` is a top-level constant — easy to adjust.
+
+### `renderLog()` guards with `if(!logEl) return`
+The TRENDS tab elements don't exist in the DOM when RECORD or MAP is active. `renderLog()` checks for the element before proceeding, so the 30s interval can fire unconditionally without crashing.

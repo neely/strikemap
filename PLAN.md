@@ -8,7 +8,7 @@
 - **c. 2007** — Original concept: point at a flash, tap at thunder, get distance and bearing. No means to build it at the time.
 - **~April 2026** — Idea revisited and sketched out in design conversation form (UI mockup, geometry approach).
 - **Early May 2026** — Sessions 1–3 built: real map, compass + recording loop, corrected uncertainty geometry (pizza crust). Confirmed via git history (2026-05-08).
-- **July 2026** — Repo split out from the `apps` monorepo into its own project; Session 4 (three-tab layout, couch mode) in progress.
+- **July 2026** — Repo split out from the `apps` monorepo into its own project; Sessions 4 and 4b (three-tab layout, couch mode, compass UX rework, soft expiry) complete; Session 5 (field test + deploy) in progress.
 
 ---
 
@@ -48,10 +48,10 @@ Early mockup and early implementation used ellipses centered on the strike point
 2. **Wrong error model.** The uncertainty region is polar (defined in bearing + distance from observer), not cartesian. Projecting it into cartesian space and fitting an ellipse loses the actual shape.
 
 The correct shape is an **annular sector** ("pizza crust"):
-- **Bearing error (±5°):** Two rays from the observer at `bearing ± 5°`. Wedge width grows linearly with distance.
+- **Bearing error (±10°):** Two rays from the observer at `bearing ± 10°`. Wedge width grows linearly with distance. Started at ±5°, revised to ±10° as more realistic for field pointing accuracy — tune after testing.
 - **Timing error (±500ms):** Inner arc at `dist − 0.107mi`, outer arc at `dist + 0.107mi`. Constant depth regardless of distance.
 
-Built as an `L.polygon` by projecting ~26 points via `strikeLatLon()`. See NOTES.md for full implementation. Center dot still plotted at the best-estimate point. The ±250ms timing assumption from the original plan was revised upward to ±500ms (more realistic for human tap reaction, especially startled by thunder).
+Built as an `L.polygon` by projecting points via `strikeLatLon()`. Center dot plotted at the best-estimate point. The ±250ms timing assumption from the original plan was revised upward to ±500ms (more realistic for human tap reaction, especially startled by thunder).
 
 ### Bearing lines kept as faint dashes
 A faint dashed line from user to each strike center helps read the bearing visually even though the crust is the precise uncertainty region. Kept at low opacity so it doesn't clutter.
@@ -61,23 +61,29 @@ Three tiers for storm timescales:
 - < 5 min → Yellow `#f5c842` (active concern)
 - 5–15 min → Orange `#f08030` (context)
 - > 15 min → Blue-grey `#4a7aaa` (historical, fading)
+- > 60 min → Expired (soft — kept in log at 45% opacity, hidden from map)
 
 Applied consistently to log entries, pizza crusts, bearing lines, and trend bars.
 
-### iOS compass permission UX
-`DeviceOrientationEvent.requestPermission()` on iOS 13+ must be triggered by a user gesture. Requested on first FLASH tap — natural moment, satisfies the requirement. If denied or unavailable, `bear` saves as `null`, strike logs with distance only, map skips the crust.
+### Strike soft-expiry at 60 minutes
+Strikes older than `EXPIRE_MIN` (60 min) are soft-expired: kept in localStorage (safe to reload mid-storm), shown in the TRENDS log with dimmed style and `EXPIRED` tag, but excluded from map, trend calculation, approaching alert, and OBS badge. Hard-delete on load was explicitly rejected — losing data on accidental reload during a storm is unacceptable.
 
-### Compass UX: tap-to-lock
-1. Tap FLASH → starts timer, compass goes live (bezel rotating freely)
-2. Swing phone toward where lightning was, hold still
-3. Tap compass ring to lock — display snaps to green "✓ NNE"
-4. Set phone down, wait for thunder
-5. Tap HEARD THUNDER
+### iOS compass permission UX — tap compass ring to enable
+`DeviceOrientationEvent.requestPermission()` on iOS 13+ must be triggered by a user gesture. Originally wired to FLASH tap, but this caused a double-prompt on open (location fires immediately, compass would fire on first FLASH). Changed in Session 4b: compass shows `TAP TO START` on open, first tap on the compass ring fires the permission request. On Android/desktop no dialog is needed — first tap silently starts the bezel. This keeps the two prompts separated in time and intent.
+
+### Compass UX: tap-to-lock, after FLASH
+1. Open app — compass shows `TAP TO START`
+2. Tap compass ring — permission fires, bezel goes live
+3. Tap FLASH → starts timer, compass turns yellow (armed)
+4. Swing phone toward where lightning was, hold still
+5. Tap compass ring to lock — display snaps to green "✓ NNE"
+6. Set phone down, wait for thunder
+7. Tap HEARD THUNDER
 
 Tapping compass again while locked will unlock it, allowing re-aim. If user never taps compass before HEARD THUNDER, strike logs with `bear: null`.
 
 ### Compass display: rotating bezel, no needle
-A spinning needle pointing at a fixed angle on screen is confusing. Rotating bezel (N/S/E/W ring rotates opposite to heading so N always faces north, like a real compass) plus fixed yellow lubber line at 12 o'clock. Center shows degrees + cardinal text only. N label is red per standard compass convention.
+A spinning needle pointing at a fixed angle on screen is confusing. Rotating bezel (N/S/E/W ring rotates opposite to heading so N always faces north, like a real compass) plus fixed yellow lubber line at 12 o'clock. Center shows degrees + cardinal text. N label is red per standard compass convention.
 
 ### Three-tab layout: RECORD / TRENDS / MAP
 The original two-panel RECORD layout (compass + log side by side) is too cramped on a phone. Separating into three tabs gives each pane room to breathe:
@@ -85,8 +91,10 @@ The original two-panel RECORD layout (compass + log side by side) is too cramped
 - TRENDS: trend chart + full log with delete controls
 - MAP: map only
 
+The mockup's two-column layout is preserved for a planned desktop version (separate file, separate session).
+
 ### Couch mode
-For recording distance-only from inside (no line of sight to flash). Toggle disables compass entirely — no permission request, no lock UI. `bear` saves as `null`. On the map, null-bearing strikes render as a full-circle bullseye ring at `distMi` radius (dashed, age color) instead of a pizza crust. Communicates "definitely this far away, direction unknown."
+For recording distance-only from inside (no line of sight to flash). Toggle on RECORD screen disables compass entirely — no permission request, no lock UI, `bear` saves as `null`. On the map, null-bearing strikes render as an **annular donut** at `distMi` radius (not a filled circle — same timing uncertainty band as the pizza crust, just swept 360°, dashed stroke, reduced fill opacity). No bearing line. Communicates "definitely this far away, direction unknown."
 
 ### Clear / delete UX
 - **CLEAR ALL** lives on TRENDS tab — confirm dialog required, then wipes localStorage
@@ -122,7 +130,6 @@ No build step, no npm, no bundler. Leaflet from CDN, fonts from Google Fonts CDN
 
 **Completed:**
 - `DeviceOrientationEvent` / `webkitCompassHeading` wired for iOS and Android
-- Compass permission requested on first FLASH tap
 - 8-sample circular mean heading buffer for jitter smoothing
 - Rotating bezel compass — bezel rotates opposite to heading, N always faces north
 - Fixed yellow lubber line at 12 o'clock marks phone's forward direction
@@ -145,88 +152,118 @@ No build step, no npm, no bundler. Leaflet from CDN, fonts from Google Fonts CDN
 **Completed:**
 - Replaced ellipse geometry with correct annular sector ("pizza crust") — `makePizzaCrust()` projects points directly from observer via `strikeLatLon()`, no cartesian ellipse math
 - Timing error revised to ±500ms (was ±250ms) — more realistic for human tap reaction
-- `TIMING_ERR_S` and `BEARING_ERR_DEG` constants removed; values embedded in `makePizzaCrust()` with comments
-- Age filter buttons fixed — now use `data-age` attributes to scope active-state toggle; CENTER button is no longer accidentally affected
-- APPROACHING alert — removed hardcoded `display:flex` from HTML; now starts hidden, JS-controlled entirely
-- DISTANT notice banner — added `#distant-notice` element and CSS; shows count of strikes >6.2mi not plotted
+- Age filter buttons fixed — now use `data-age` attributes; CENTER button no longer accidentally affected
+- APPROACHING alert — removed hardcoded `display:flex` from HTML; starts hidden, JS-controlled
+- DISTANT notice banner — `#distant-notice` element, CSS, and `updateMapStrip()` wiring
 - `fetchExternalStrikes()` stub added — async, returns `[]`, ready for Blitzortung hook
-- Map legend present, positioned `bottom:60px right:12px` as absolute overlay
+- Map legend present as absolute overlay
+
+---
+
+### Session 4 — Three Tabs + Couch Mode ✅ COMPLETE
+**Goal:** Full phone-ready layout, couch mode, all initialization bugs fixed, clear/delete UX.
+
+**Completed:**
+- Three-tab nav: RECORD / TRENDS / MAP
+- RECORD restructured as single full-width column
+- TRENDS screen: trend bar chart + full log + CLEAR ALL + per-entry ✕ delete
+- Couch mode toggle with pip switch UI — hides compass, shows status label, `bear` saves as `null`
+- MAP: null-bearing strikes render as annular donut (not filled circle, not `L.circle`)
+- HEARD THUNDER starts inert — no `armed` class in HTML
+- All calc box fields initialized to `—` in HTML
+- Trend bars initialize empty (`NO DATA`) on load
+- Map strip stats initialize to `—` in HTML
+- Timestamp `setInterval` is unconditional — runs regardless of active tab
+- CLEAR ALL wired to TRENDS tab only, with `confirm()` dialog
+- Per-entry ✕ delete — no confirm, re-renders log + map
+
+---
+
+### Session 4b — Compass UX + Expiry + Donut Geometry ✅ COMPLETE
+**Goal:** Compass tap-to-enable (no double prompt), soft strike expiry, correct donut shape.
+
+**Completed:**
+- Compass permission moved from FLASH tap to first compass ring tap
+- Compass shows `TAP TO START` on open; `updateCompassDisplay()` has a pre-permission state
+- `startCompass()` calls `updateCompassDisplay()` after permission granted so bezel starts moving immediately
+- FLASH no longer calls `requestCompassPermission()`
+- Soft expiry: `EXPIRE_MIN = 60` constant, `isExpired(ts)` helper
+- Expired strikes: shown in TRENDS log at 45% opacity with `EXPIRED` tag; excluded from map, trend, OBS badge
+- Log count shows `N STRIKES · M ACTIVE` when some are expired
+- OBS badge counts active (non-expired) only
+- Annular donut (`makeDonut()`) replaces `L.circle` / `makeBullseye()` for null-bearing strikes — same `TIMING_ERROR_S` band, 36 steps, dashed stroke, `fillOpacity: 0.15`
+- `makePizzaCrust()` now references named constants (`BEARING_ERROR_DEG`, `TIMING_ERROR_S`) instead of hardcoded values
+- `BEARING_ERROR_DEG = 10` (was embedded as `5` in Session 3)
+- All tunable values as named top-level constants
+- Single `DOMContentLoaded` block — init, clear-all listener, age filter listeners unified
+- Map legend text updated to reflect ±10° and donut
 
 **Current constants in file:**
 ```javascript
-const SOUND_MPS   = 343;
-const MI_PER_M    = 0.000621371;
-const MAX_DIST_MI = 6.2;
-const LS_KEY      = 'sm_strikes';
+const SOUND_MPS         = 343;    // m/s speed of sound
+const MI_PER_M          = 0.000621371;
+const MAX_DIST_MI       = 6.2;    // beyond this → DISTANT, not plotted
+const BEARING_ERROR_DEG = 10;     // ±° compass/pointing error — tune after field testing
+const TIMING_ERROR_S    = 0.5;    // ±s human reaction time on FLASH and THUNDER taps
+const EXPIRE_MIN        = 60;     // minutes before a strike goes soft-expired
+const LS_KEY            = 'sm_strikes';
 ```
 
 ---
 
-### Session 4 — Three Tabs + Couch Mode + Polish ← START HERE
-**Goal:** Full phone-ready layout, couch mode, all initialization bugs fixed, clear/delete UX complete.
-
-**Tasks — do all in one pass, in this order:**
-
-1. **Three-tab nav (RECORD / TRENDS / MAP)**
-   - Add TRENDS button between RECORD and MAP in header nav
-   - Add `#screen-trends` section
-   - Move trend bar chart + strike log into TRENDS screen
-   - RECORD becomes single full-width column: compass + couch toggle + buttons + calc box only
-   - `showScreen('trends')` calls `renderLog()` and `renderTrend()` on activation
-
-2. **Couch mode**
-   - Toggle button on RECORD screen, between compass and SAW FLASH
-   - When active: hide compass ring, show "COUCH MODE — NO BEARING" label, set `couchMode = true`
-   - SAW FLASH in couch mode: skip compass permission, skip bearing lock, `bear` saves as `null`
-   - Calc box bearing row shows "COUCH MODE"
-   - Map: `bear === null` strikes render as `L.circle` ring at `distMi * 1609.34` meters radius — dashed, age color, `fillOpacity: 0.10`, no bearing line, center dot still plotted
-
-3. **UI initialization bugs**
-   - HEARD THUNDER button — remove `armed` class from HTML; starts inert
-   - Calc box bearing — add `id="c-bearing"` directly in HTML, remove DOM-query patch
-   - Trend bars — initialize empty on load; call `renderTrend([])` in DOMContentLoaded
-   - Map strip — set all stat values to `—` in HTML
-   - Timestamp interval — remove screen check; run 30s refresh regardless of active tab
-   - Strike label clipping — use bearing quadrant to set `iconAnchor` so label stays on-screen
-
-4. **CLEAR / delete UX**
-   - CLEAR ALL on TRENDS tab only — `confirm()` dialog, wipe localStorage, re-render log + map
-   - Per-entry ✕ on each log row — no confirm, delete by `ts`, re-render
-   - Remove CLEAR from RECORD screen
-   - No CLEAR on MAP tab
-
-5. **Map legend**
-   - Check visibility on 390px wide phone screen
-   - If it occludes strike zones, make it collapsible: tap to toggle, default collapsed
-
-**Deliverable:** Full phone-ready three-tab app, couch mode working, all stale values fixed.
-
----
-
-### Session 5 — Field Test + Deploy
-**Goal:** Everything live-updating and deployed to real HTTPS URL.
+### Session 5 — Live Refresh + Field Test + Deploy ← START HERE
+**Goal:** Everything live-updating; deployed to real HTTPS URL; field-tested on phone.
 
 **Tasks:**
-- Age colors update without user interaction (extend 30s setInterval to call `renderMapStrikes()` and `updateObsBadge()`)
-- Field test on iOS: geolocation prompt, compass permission flow, bezel rotation, tap-to-lock, couch mode
-- Field test on Android: compass fires without dialog, verify bearing accuracy
-- Deploy to GitHub Pages (rename to `index.html`, push, enable Pages)
-- Confirm all features work over HTTPS on real device
-- Tune `BEARING_ERROR_DEG` and `TIMING_ERROR_S` constants based on field observations
 
-**Deliverable:** Shareable URL, works on any phone in a real storm.
+1. **Live age color refresh** (one task, two lines)
+   - The 30s `setInterval(renderLog, 30000)` already refreshes TRENDS log
+   - Extend it to also call `renderMapStrikes()` and `updateObsBadge()`
+   - Age colors, OBS badge, and map strip will then update without user interaction
+
+2. **Deploy to GitHub Pages**
+   - Rename `strikemap.html` → `index.html`
+   - Push to GitHub repo with Pages enabled (Settings → Pages → Deploy from branch → main → / root)
+   - Wait ~60s, open `https://yourusername.github.io/reponame/`
+
+3. **iOS field test checklist** (requires HTTPS)
+   - [ ] Location prompt appears on open
+   - [ ] Compass shows `TAP TO START` with cyan glow; no compass prompt yet
+   - [ ] Tap compass ring → permission dialog appears
+   - [ ] After permission: bezel rotates live, degrees update
+   - [ ] Tap SAW FLASH → thunder button arms orange; compass turns yellow
+   - [ ] Tap compass ring → locks green `✓ NNE`
+   - [ ] Tap HEARD THUNDER → strike saved; TRENDS log shows it; MAP plots pizza crust
+   - [ ] Couch mode: compass hidden; HEARD THUNDER saves `bear: null`; MAP shows donut ring
+   - [ ] To test expiry: temporarily set `EXPIRE_MIN = 1`, wait 1 min, verify map clears, log shows `EXPIRED`, OBS badge drops
+
+4. **Android test**
+   - Chrome Android: `deviceorientation` fires without dialog — bezel should go live immediately on first tap
+   - Firefox Android: may need `about:config` → `device.sensors.enabled` = true
+
+5. **Tune constants** based on field observations
+   - `BEARING_ERROR_DEG`: compare logged bearings against known landmarks; ±10° is a guess
+   - `TIMING_ERROR_S`: if reaction time feels fast/slow, adjust; ±500ms is conservative
+
+**Known rough edges to address if time allows:**
+- Trend bar scale: if oldest strike is 6mi and newest is 1.4mi, recent bar is tiny. Consider minimum bar height floor (e.g. 20%).
+- Map label clipping: quadrant offset heuristic may still clip northerly strikes on narrow phones.
+- Couch mode doesn't persist across reload — resets to off. Acceptable for now.
+- Map strip DIRECTION shows `—` when closest strike has null bearing — correct, not a bug, but may surprise users.
+
+**Deliverable:** Shareable HTTPS URL, works on any phone in a real storm.
 
 ---
 
 ## Tunable Constants (top of script block)
 
 ```javascript
-const SOUND_MPS   = 343;     // m/s speed of sound
-const MI_PER_M    = 0.000621371;
-const MAX_DIST_MI = 6.2;     // beyond this → DISTANT, not plotted
-// Inside makePizzaCrust():
-//   DELTA_D_MI = 0.5 * SOUND_MPS * MI_PER_M  (~0.107mi, ±500ms timing error)
-//   DELTA_B    = 5                             (±5° bearing error)
+const SOUND_MPS         = 343;    // m/s speed of sound
+const MI_PER_M          = 0.000621371;
+const MAX_DIST_MI       = 6.2;    // beyond this → DISTANT, not plotted
+const BEARING_ERROR_DEG = 10;     // ±° pointing error — tune after field testing
+const TIMING_ERROR_S    = 0.5;    // ±s human tap reaction time
+const EXPIRE_MIN        = 60;     // minutes before soft-expiry
 // Age thresholds: hardcoded in ageClass() — <5min recent, <15min mid, else old
 ```
 
@@ -235,10 +272,10 @@ const MAX_DIST_MI = 6.2;     // beyond this → DISTANT, not plotted
 ## After v1 — Possible Future Work
 
 - **Blitzortung overlay**: wire `fetchExternalStrikes()`, show confirmed strikes as distinct markers for comparison with your observations. Good calibration tool.
-- **Desktop layout**: two-column view (controls left, log/trend right). Couch mode on by default since no device compass. Manual lat/lon entry since IP geolocation is imprecise on desktop.
+- **Desktop layout**: two-column view (controls left, log/trend right) — the original mockup design. Couch mode on by default since no device compass. Manual lat/lon entry since IP geolocation is imprecise on desktop (e.g. for tracking storms from work).
 - **Multiple observers**: if two people at known locations both record the same strike, triangulation becomes possible. Out of scope for now.
 - **Tile variants**: CartoDB Positron (light) or standard OSM if dark tiles feel wrong in daylight use.
-- **Bearing-error tuning**: ±5° is a guess. After field testing, compare logged bearings against known strike locations (if Blitzortung data is available) and adjust the constant.
+- **Bearing-error tuning**: ±10° is a field estimate. After testing, compare logged bearings against known strike locations (if Blitzortung data is available) and adjust the constant.
 
 ---
 
