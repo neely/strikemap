@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Strikemap</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#080c10; --surface:#0d1318; --surface2:#111820; --border:#1e2d38;
+    --yellow:#f5c842; --orange:#f08030; --red:#e03030; --old:#4a7aaa;
+    --cyan:#30c8e0; --text:#c8dce8; --dim:#5a7a8a;
+    --mono:'Share Tech Mono',monospace; --cond:'Barlow Condensed',sans-serif;
+    --hdr:50px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--cond);}
+
+  /* HEADER */
+  header{
+    height:var(--hdr);display:flex;align-items:center;justify-content:space-between;
+    padding:0 16px;border-bottom:1px solid var(--border);background:var(--surface);
+    position:relative;z-index:200;
+  }
+  .logo{font-weight:900;font-size:20px;letter-spacing:4px;color:var(--yellow);text-shadow:0 0 14px rgba(245,200,66,.35);}
+  .logo span{color:var(--cyan);}
+  .nav{display:flex;gap:3px;}
+  .nav-btn{
+    font-family:var(--cond);font-weight:700;font-size:12px;letter-spacing:2px;
+    padding:5px 14px;border:1px solid var(--border);background:transparent;
+    color:var(--dim);cursor:pointer;transition:all .15s;text-transform:uppercase;
+  }
+  .nav-btn.active{background:var(--yellow);color:var(--bg);border-color:var(--yellow);}
+  .live-badge{font-family:var(--mono);font-size:10px;color:var(--dim);display:flex;align-items:center;gap:5px;}
+  .live-dot{width:6px;height:6px;border-radius:50%;background:var(--yellow);animation:blink 1.5s ease-in-out infinite;}
+  @keyframes blink{0%,100%{opacity:1;box-shadow:0 0 6px var(--yellow)}50%{opacity:.3;box-shadow:none}}
+
+  /* SCREENS */
+  .screen{display:none;}
+  .screen.active{display:flex;flex-direction:column;}
+  #screen-record,#screen-map{height:calc(100vh - var(--hdr));}
+
+  /* ── RECORD SCREEN ── */
+  #screen-record{flex-direction:row;overflow:hidden;}
+  .panel-l{width:52%;border-right:1px solid var(--border);padding:16px 14px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;}
+  .panel-r{flex:1;padding:14px 12px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;}
+  .sec-label{font-family:var(--mono);font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--dim);margin-bottom:4px;}
+
+  /* Compass */
+  .compass-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;}
+  .compass-ring{position:relative;width:150px;height:150px;}
+  .compass-ring svg{width:100%;height:100%;}
+  .compass-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;}
+  .compass-deg{font-family:var(--mono);font-size:24px;color:var(--yellow);line-height:1;}
+  .compass-card{font-family:var(--cond);font-weight:700;font-size:15px;color:var(--cyan);letter-spacing:2px;}
+
+  /* Buttons */
+  .big-btn{width:100%;padding:16px 12px;cursor:pointer;font-family:var(--cond);font-weight:900;font-size:16px;letter-spacing:3px;text-transform:uppercase;border:2px solid;transition:all .15s;}
+  .big-btn .sub{display:block;font-size:10px;font-weight:400;letter-spacing:2px;margin-top:3px;opacity:.5;}
+  .btn-flash{background:linear-gradient(135deg,#2a1a00,#140f00);border-color:var(--yellow);color:var(--yellow);}
+  .btn-flash:active{transform:scale(.97);box-shadow:0 0 60px rgba(245,200,66,.5);}
+  .btn-thunder{background:linear-gradient(135deg,#001a2a,#000d18);border-color:var(--cyan);color:var(--cyan);}
+  .btn-thunder.armed{border-color:var(--orange);color:var(--orange);background:linear-gradient(135deg,#1a0d00,#0d0800);animation:arm .8s ease-in-out infinite;}
+  @keyframes arm{0%,100%{box-shadow:0 0 8px rgba(240,128,48,.2)}50%{box-shadow:0 0 24px rgba(240,128,48,.5)}}
+
+  /* Calc */
+  .calc-box{background:var(--surface2);border:1px solid var(--border);padding:12px 14px;}
+  .calc-timer{font-family:var(--mono);font-size:32px;color:var(--orange);text-align:center;padding:4px 0;letter-spacing:2px;}
+  .calc-row{display:flex;justify-content:space-between;align-items:baseline;margin-top:5px;}
+  .calc-key{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:1px;}
+  .calc-val{font-family:var(--mono);font-size:15px;color:var(--yellow);}
+  .calc-val.cy{color:var(--cyan);}
+  .calc-val.dm{color:var(--dim);font-size:12px;}
+
+  /* Trend */
+  .trend-box{background:var(--surface2);border:1px solid var(--border);padding:10px 12px;}
+  .trend-bars{display:flex;align-items:flex-end;gap:3px;height:32px;margin:6px 0 4px;}
+  .trend-bar-col{flex:1;border-radius:1px;min-height:3px;}
+  .trend-status{font-family:var(--cond);font-weight:700;font-size:12px;letter-spacing:2px;}
+  .approaching{color:var(--red);}
+  .receding{color:#30a860;}
+
+  /* Log */
+  .log-header{display:flex;justify-content:space-between;align-items:center;}
+  .log-count{font-family:var(--mono);font-size:10px;color:var(--cyan);}
+  .clear-btn{font-family:var(--mono);font-size:9px;color:var(--dim);background:none;border:1px solid var(--border);padding:2px 7px;cursor:pointer;}
+  .strike-log{display:flex;flex-direction:column;gap:5px;}
+  .s-entry{border-left:3px solid;padding:8px 10px;background:var(--surface2);display:grid;grid-template-columns:1fr auto;gap:2px;animation:slidein .25s ease;}
+  @keyframes slidein{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:none}}
+  .s-entry.recent{border-color:var(--yellow);}
+  .s-entry.mid{border-color:var(--orange);}
+  .s-entry.old{border-color:var(--old);}
+  .s-dist{font-family:var(--mono);font-size:14px;line-height:1;}
+  .s-dist.recent{color:var(--yellow);}
+  .s-dist.mid{color:var(--orange);}
+  .s-dist.old{color:var(--dim);}
+  .s-meta{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:1px;margin-top:2px;}
+  .s-bearing{font-family:var(--mono);font-size:17px;text-align:right;}
+  .s-bearing.recent{color:var(--cyan);}
+  .s-bearing.mid{color:var(--orange);}
+  .s-bearing.old{color:var(--dim);}
+  .s-time{font-family:var(--mono);font-size:9px;color:var(--dim);text-align:right;}
+
+  /* ── MAP SCREEN ── */
+  #screen-map{position:relative;}
+
+  .map-controls{
+    height:40px;display:flex;align-items:center;gap:6px;padding:0 12px;
+    border-bottom:1px solid var(--border);background:var(--surface);z-index:100;flex-shrink:0;
+  }
+  .mc-btn{font-family:var(--mono);font-size:9px;letter-spacing:1px;padding:4px 10px;border:1px solid var(--border);background:transparent;color:var(--dim);cursor:pointer;transition:all .15s;text-transform:uppercase;}
+  .mc-btn.active,.mc-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+  .mc-sep{width:1px;height:16px;background:var(--border);}
+  .mc-label{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:1px;}
+
+  /* Map container */
+  .map-wrap{position:relative;flex:1;overflow:hidden;}
+
+  .map-img{
+    display:block;width:100%;height:100%;
+    object-fit:cover;object-position:center;
+    filter:saturate(0.55) brightness(0.75);
+  }
+
+  .map-svg{
+    position:absolute;inset:0;width:100%;height:100%;
+    overflow:visible;
+  }
+
+  /* Bottom strip */
+  .map-strip{
+    height:52px;display:flex;align-items:center;gap:16px;padding:0 14px;
+    border-top:1px solid var(--border);background:var(--surface);z-index:100;flex-shrink:0;flex-wrap:wrap;overflow:hidden;
+  }
+  .ms{display:flex;flex-direction:column;gap:1px;}
+  .ms-key{font-family:var(--mono);font-size:8px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;}
+  .ms-val{font-family:var(--mono);font-size:13px;color:var(--yellow);}
+  .ms-val.cy{color:var(--cyan);}
+  .ms-val.rd{color:var(--red);}
+  .ms-val.gn{color:#30a860;}
+  .approach-alert{margin-left:auto;background:rgba(224,48,48,.12);border:1px solid var(--red);padding:4px 12px;display:flex;align-items:center;gap:6px;}
+  .alert-icon{animation:blink 1s ease-in-out infinite;}
+  .alert-txt{font-family:var(--cond);font-weight:700;font-size:12px;letter-spacing:2px;color:var(--red);text-transform:uppercase;}
+
+  /* Legend */
+  .map-legend{
+    position:absolute;bottom:60px;right:12px;
+    background:rgba(8,12,16,.88);border:1px solid var(--border);
+    padding:8px 12px;z-index:50;backdrop-filter:blur(4px);
+    display:flex;flex-direction:column;gap:5px;
+  }
+  .leg-row{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:1px;}
+  .leg-sw{width:20px;height:3px;border-radius:1px;}
+
+  @media(max-width:520px){
+    #screen-record{flex-direction:column;}
+    .panel-l{width:100%;border-right:none;border-bottom:1px solid var(--border);}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">STRIKE<span>MAP</span></div>
+  <nav class="nav">
+    <button class="nav-btn active" id="tab-record" onclick="showScreen('record')">RECORD</button>
+    <button class="nav-btn" id="tab-map" onclick="showScreen('map')">MAP</button>
+  </nav>
+  <div class="live-badge"><span class="live-dot"></span><span id="obs-badge">6 OBS</span></div>
+</header>
+
+<!-- ══ RECORD ══ -->
+<section class="screen active" id="screen-record">
+  <div class="panel-l">
+    <div class="compass-wrap">
+      <div class="sec-label">BEARING — POINT PHONE AT FLASH</div>
+      <div class="compass-ring">
+        <svg viewBox="0 0 150 150">
+          <circle cx="75" cy="75" r="70" fill="none" stroke="#1e2d38" stroke-width="1"/>
+          <g stroke="#2a3d4a" stroke-width="1">
+            <line x1="75" y1="7" x2="75" y2="17"/>
+            <line x1="75" y1="133" x2="75" y2="143"/>
+            <line x1="7" y1="75" x2="17" y2="75"/>
+            <line x1="133" y1="75" x2="143" y2="75"/>
+          </g>
+          <text x="75" y="26"  text-anchor="middle" fill="#5a7a8a" font-family="'Share Tech Mono'" font-size="9">N</text>
+          <text x="75" y="137" text-anchor="middle" fill="#5a7a8a" font-family="'Share Tech Mono'" font-size="9">S</text>
+          <text x="14" y="79"  text-anchor="middle" fill="#5a7a8a" font-family="'Share Tech Mono'" font-size="9">W</text>
+          <text x="136" y="79" text-anchor="middle" fill="#5a7a8a" font-family="'Share Tech Mono'" font-size="9">E</text>
+          <!-- needle pointing NNE ~043° -->
+          <line x1="75" y1="75" x2="105" y2="30" stroke="#f5c842" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="75" cy="75" r="4" fill="#f5c842"/>
+          <circle cx="75" cy="75" r="2.5" fill="#080c10"/>
+        </svg>
+        <div class="compass-center">
+          <div class="compass-deg">043°</div>
+          <div class="compass-card">NNE</div>
+        </div>
+      </div>
+      <div class="sec-label" style="text-align:center;font-size:8px;">heading locks when you tap FLASH</div>
+    </div>
+
+    <button class="big-btn btn-flash" onclick="mockFlash(this)">
+      ⚡ SAW FLASH
+      <span class="sub">tap immediately on lightning</span>
+    </button>
+    <button class="big-btn btn-thunder armed" id="btn-thunder" onclick="mockThunder(this)">
+      ◎ HEARD THUNDER
+      <span class="sub" id="thunder-sub">waiting for thunder...</span>
+    </button>
+
+    <div class="calc-box">
+      <div class="sec-label">LIVE CALCULATION</div>
+      <div class="calc-timer" id="live-timer">2.3s</div>
+      <div class="calc-row"><span class="calc-key">DELAY</span><span class="calc-val" id="c-delay">2.3s</span></div>
+      <div class="calc-row"><span class="calc-key">DISTANCE</span><span class="calc-val cy" id="c-dist">1.4 mi</span></div>
+      <div class="calc-row"><span class="calc-key">BEARING</span><span class="calc-val dm">043° NNE</span></div>
+    </div>
+  </div>
+
+  <div class="panel-r">
+    <div class="trend-box">
+      <div class="sec-label">DISTANCE TREND</div>
+      <div class="trend-bars">
+        <div class="trend-bar-col" style="height:60%;background:#4a7aaa;opacity:.6"></div>
+        <div class="trend-bar-col" style="height:52%;background:#4a7aaa;opacity:.7"></div>
+        <div class="trend-bar-col" style="height:66%;background:#f08030;opacity:.7"></div>
+        <div class="trend-bar-col" style="height:50%;background:#f08030;opacity:.8"></div>
+        <div class="trend-bar-col" style="height:39%;background:#e03030;opacity:.85"></div>
+        <div class="trend-bar-col" style="height:32%;background:#e03030;opacity:1"></div>
+      </div>
+      <div class="trend-status approaching">▼ APPROACHING · 0.28 mi closer/strike</div>
+    </div>
+
+    <div class="log-header">
+      <div class="sec-label">LOG</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span class="log-count">6 STRIKES</span>
+        <button class="clear-btn">CLEAR</button>
+      </div>
+    </div>
+
+    <div class="strike-log">
+      <div class="s-entry recent">
+        <div><div class="s-dist recent">1.4 mi</div><div class="s-meta">2.3s · 043° NNE</div></div>
+        <div><div class="s-bearing recent">NNE</div><div class="s-time">0:52 ago</div></div>
+      </div>
+      <div class="s-entry recent">
+        <div><div class="s-dist recent">1.7 mi</div><div class="s-meta">2.8s · 038° NNE</div></div>
+        <div><div class="s-bearing recent">NNE</div><div class="s-time">3:10 ago</div></div>
+      </div>
+      <div class="s-entry mid">
+        <div><div class="s-dist mid">2.1 mi</div><div class="s-meta">3.4s · 055° NE</div></div>
+        <div><div class="s-bearing mid">NE</div><div class="s-time">6:44 ago</div></div>
+      </div>
+      <div class="s-entry mid">
+        <div><div class="s-dist mid">2.4 mi</div><div class="s-meta">3.9s · 061° ENE</div></div>
+        <div><div class="s-bearing mid">ENE</div><div class="s-time">10:20 ago</div></div>
+      </div>
+      <div class="s-entry old">
+        <div><div class="s-dist old">2.8 mi</div><div class="s-meta">4.5s · 072° ENE</div></div>
+        <div><div class="s-bearing old">ENE</div><div class="s-time">16:01 ago</div></div>
+      </div>
+      <div class="s-entry old">
+        <div><div class="s-dist old">3.1 mi</div><div class="s-meta">5.0s · 078° E</div></div>
+        <div><div class="s-bearing old">E</div><div class="s-time">21:33 ago</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ MAP ══ -->
+<section class="screen" id="screen-map">
+  <div class="map-controls">
+    <span class="mc-label">AGE</span>
+    <button class="mc-btn active">ALL</button>
+    <button class="mc-btn">10 MIN</button>
+    <button class="mc-btn">30 MIN</button>
+    <div class="mc-sep"></div>
+    <button class="mc-btn">⊕ CENTER</button>
+  </div>
+
+  <div class="map-wrap">
+    <img class="map-img" src="/mnt/user-data/uploads/9069fcca0a9b0c131bd29bd0143341002c558f9c.jpeg" alt="map"/>
+
+    <!--
+      Image is ~960×1170 displayed, scaled to container.
+      YOU are at roughly 48%, 61% of the image (near Folly Rd / 171).
+      Map spans roughly: lat 32.62–32.83, lon -80.08 – -79.84
+      That's ~21mi wide, ~21mi tall at this scale.
+      1 mile ≈ 4.5% of image width ≈ 4.3% of image height.
+
+      Strike positions computed from bearing + distance off YOUR dot.
+      Pixel scale: 1 mi ≈ 43px on a 960px wide image (4.48%)
+                   bearing: 0°=up, 90°=right, etc.
+
+      YOU px: x=460, y=710 on native 960×1170
+      We use % coordinates in the SVG viewBox matching native image.
+    -->
+    <svg class="map-svg" viewBox="0 0 960 1170" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <!-- Glow filters per age -->
+        <filter id="glow-yellow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="6" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="glow-orange" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="5" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="glow-old" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="4" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      <!--
+        GEOMETRY NOTES
+        YOU = (460, 710)
+        1 mile = 43px (horizontal), 43px (vertical) — roughly square at this zoom
+        Bearing to pixel offset: dx = sin(bear)*dist*43, dy = -cos(bear)*dist*43
+
+        Error ellipse axes:
+          radial (depth):  ±250ms * 343m/s = ±86m = ±0.053mi → ±2.3px  (tiny, ~5px total)
+          tangential (width): ±5° * dist_mi * 43px/mi * π/180
+            at 1.4mi: ±5.3px → ellipse width ~11px
+            at 3.1mi: ±11.7px → ellipse width ~23px
+        These are small on map scale, so I'm scaling up for visibility
+        multiplying by ~6 so they're legible: radial ×6 = ~14px, tangential grows with dist.
+
+        Strike centers:
+          S1: bear=043, dist=1.4mi → dx=sin(43°)*1.4*43=+41, dy=-cos(43°)*1.4*43=-44  → (501, 666)
+          S2: bear=038, dist=1.7mi → dx=sin(38°)*1.7*43=+45, dy=-cos(38°)*1.7*43=-57  → (505, 653)  wait recalc:
+            sin38=.616, cos38=.788  dx=.616*1.7*43=45  dy=-.788*1.7*43=-57  → (505,653)
+          S3: bear=055, dist=2.1mi → sin55=.819,cos55=.574 dx=74,dy=-52 → (534,658)
+          S4: bear=061, dist=2.4mi → sin61=.875,cos61=.485 dx=90,dy=-50 → (550,660)
+          S5: bear=072, dist=2.8mi → sin72=.951,cos72=.309 dx=115,dy=-37 → (575,673)
+          S6: bear=078, dist=3.1mi → sin78=.978,cos78=.208 dx=130,dy=-28 → (590,682)
+
+        Ellipse rx (tangential, half-width) = 5° * dist_mi * 43 * π/180 * 6 (vis scale)
+          S1: 5*1.4*43*.0873*1 = actual 26px, show ~26px
+          S2: 5*1.7*43*.0873   = ~32px
+          S3: 5*2.1*43*.0873   = ~39px
+          S4: 5*2.4*43*.0873   = ~45px
+          S5: 5*2.8*43*.0873   = ~53px
+          S6: 5*3.1*43*.0873   = ~58px
+
+        Ellipse ry (radial, half-depth) = fixed ~14px (±86m at map scale ≈ ±3.7px actual, ×4 vis)
+          Keep it consistent ~14px so it's visible but clearly tighter than width.
+
+        Each ellipse is rotated to bearing angle so its major axis is perpendicular to the bearing.
+      -->
+
+      <!-- ── BEARING LINES (faint dashes from YOU to strike center) ── -->
+      <line x1="460" y1="710" x2="501" y2="666" stroke="#f5c842" stroke-width="1" stroke-dasharray="5 4" opacity="0.35"/>
+      <line x1="460" y1="710" x2="505" y2="653" stroke="#f5c842" stroke-width="1" stroke-dasharray="5 4" opacity="0.30"/>
+      <line x1="460" y1="710" x2="534" y2="658" stroke="#f08030" stroke-width="1" stroke-dasharray="5 4" opacity="0.25"/>
+      <line x1="460" y1="710" x2="550" y2="660" stroke="#f08030" stroke-width="1" stroke-dasharray="5 4" opacity="0.20"/>
+      <line x1="460" y1="710" x2="575" y2="673" stroke="#4a7aaa" stroke-width="1" stroke-dasharray="5 4" opacity="0.18"/>
+      <line x1="460" y1="710" x2="590" y2="682" stroke="#4a7aaa" stroke-width="1" stroke-dasharray="5 4" opacity="0.15"/>
+
+      <!-- ── STRIKE 6 — oldest, 3.1mi E (78°) ── -->
+      <!-- center (590,682), rx=58 tangential, ry=14 radial, rotate 78° -->
+      <ellipse cx="590" cy="682" rx="58" ry="14"
+               fill="#4a7aaa" fill-opacity="0.18"
+               stroke="#4a7aaa" stroke-width="1.2" stroke-dasharray="4 3" opacity="0.6"
+               transform="rotate(78,590,682)" filter="url(#glow-old)"/>
+      <circle cx="590" cy="682" r="3" fill="#4a7aaa" opacity="0.7"/>
+
+      <!-- ── STRIKE 5 — old, 2.8mi ENE (72°) ── -->
+      <ellipse cx="575" cy="673" rx="53" ry="14"
+               fill="#4a7aaa" fill-opacity="0.22"
+               stroke="#4a7aaa" stroke-width="1.4" stroke-dasharray="4 3" opacity="0.7"
+               transform="rotate(72,575,673)" filter="url(#glow-old)"/>
+      <circle cx="575" cy="673" r="3" fill="#4a7aaa" opacity="0.8"/>
+
+      <!-- ── STRIKE 4 — mid, 2.4mi ENE (61°) ── -->
+      <ellipse cx="550" cy="660" rx="45" ry="14"
+               fill="#f08030" fill-opacity="0.20"
+               stroke="#f08030" stroke-width="1.5" opacity="0.75"
+               transform="rotate(61,550,660)" filter="url(#glow-orange)"/>
+      <circle cx="550" cy="660" r="3.5" fill="#f08030" opacity="0.9"/>
+
+      <!-- ── STRIKE 3 — mid, 2.1mi NE (55°) ── -->
+      <ellipse cx="534" cy="658" rx="39" ry="14"
+               fill="#f08030" fill-opacity="0.25"
+               stroke="#f08030" stroke-width="1.8" opacity="0.80"
+               transform="rotate(55,534,658)" filter="url(#glow-orange)"/>
+      <circle cx="534" cy="658" r="3.5" fill="#f08030" opacity="0.95"/>
+
+      <!-- ── STRIKE 2 — recent, 1.7mi NNE (38°) ── -->
+      <ellipse cx="505" cy="653" rx="32" ry="14"
+               fill="#f5c842" fill-opacity="0.22"
+               stroke="#f5c842" stroke-width="2" opacity="0.88"
+               transform="rotate(38,505,653)" filter="url(#glow-yellow)"/>
+      <circle cx="505" cy="653" r="4" fill="#f5c842" opacity="0.95"/>
+      <text x="510" y="646" font-family="'Share Tech Mono'" font-size="9" fill="#f5c842" opacity="0.85">1.7mi</text>
+
+      <!-- ── STRIKE 1 — most recent, 1.4mi NNE (43°) ── -->
+      <ellipse cx="501" cy="666" rx="26" ry="14"
+               fill="#f5c842" fill-opacity="0.30"
+               stroke="#f5c842" stroke-width="2.5" opacity="1"
+               transform="rotate(43,501,666)" filter="url(#glow-yellow)"/>
+      <!-- Lightning bolt at center -->
+      <circle cx="501" cy="666" r="5" fill="#f5c842" opacity="1"/>
+      <circle cx="501" cy="666" r="9" fill="none" stroke="#f5c842" stroke-width="1" opacity="0.4"/>
+      <text x="506" y="659" font-family="'Share Tech Mono'" font-size="9" fill="#f5c842">⚡ 1.4mi</text>
+
+      <!-- ── YOU ARE HERE ── -->
+      <circle cx="460" cy="710" r="8" fill="#30c8e0" opacity="0.95"/>
+      <circle cx="460" cy="710" r="14" fill="none" stroke="#30c8e0" stroke-width="1.5" opacity="0.5">
+        <animate attributeName="r" values="10;22;10" dur="2.5s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.5;0;0.5" dur="2.5s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="460" cy="710" r="8" fill="#30c8e0"/>
+      <text x="470" y="707" font-family="'Share Tech Mono'" font-size="9" fill="#30c8e0" opacity="0.9">YOU</text>
+
+      <!-- Scale bar -->
+      <line x1="40" y1="1130" x2="40" y2="1124" stroke="#5a7a8a" stroke-width="1.5"/>
+      <line x1="83" y1="1130" x2="83" y2="1124" stroke="#5a7a8a" stroke-width="1.5"/>
+      <line x1="40" y1="1127" x2="83" y2="1127" stroke="#5a7a8a" stroke-width="1.5"/>
+      <text x="61" y="1120" text-anchor="middle" font-family="'Share Tech Mono'" font-size="9" fill="#5a7a8a">1 mi</text>
+    </svg>
+
+    <!-- Legend -->
+    <div class="map-legend">
+      <div class="leg-row"><div class="leg-sw" style="background:var(--yellow)"></div>RECENT &lt;5 MIN</div>
+      <div class="leg-row"><div class="leg-sw" style="background:var(--orange)"></div>MID 5–15 MIN</div>
+      <div class="leg-row"><div class="leg-sw" style="background:var(--old)"></div>OLD &gt;15 MIN</div>
+      <div style="font-family:var(--mono);font-size:8px;color:var(--dim);margin-top:4px;border-top:1px solid var(--border);padding-top:4px;line-height:1.6;">
+        ELLIPSE WIDTH = ±5° BEARING<br>
+        ELLIPSE DEPTH = ±250ms TIMING<br>
+        WIDTH GROWS WITH DISTANCE
+      </div>
+    </div>
+  </div>
+
+  <div class="map-strip">
+    <div class="ms"><span class="ms-key">OBS</span><span class="ms-val">6</span></div>
+    <div class="ms"><span class="ms-key">CLOSEST</span><span class="ms-val">1.4 mi</span></div>
+    <div class="ms"><span class="ms-key">DIRECTION</span><span class="ms-val cy">NNE</span></div>
+    <div class="ms"><span class="ms-key">TREND</span><span class="ms-val rd">▼ CLOSER</span></div>
+    <div class="approach-alert">
+      <span class="alert-icon">⚡</span>
+      <span class="alert-txt">APPROACHING</span>
+    </div>
+  </div>
+</section>
+
+<script>
+function showScreen(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+let flashTime=null, timerTick=null;
+function mockFlash(btn){
+  flashTime=Date.now();
+  document.getElementById('btn-thunder').classList.add('armed');
+  document.getElementById('thunder-sub').textContent='tap when you hear it...';
+  btn.style.boxShadow='0 0 60px rgba(245,200,66,.7)';
+  setTimeout(()=>btn.style.boxShadow='',400);
+  if(timerTick) clearInterval(timerTick);
+  timerTick=setInterval(()=>{
+    if(!flashTime) return clearInterval(timerTick);
+    document.getElementById('live-timer').textContent=((Date.now()-flashTime)/1000).toFixed(1)+'s';
+  },100);
+}
+function mockThunder(btn){
+  if(!flashTime) return;
+  clearInterval(timerTick);
+  const d=(Date.now()-flashTime)/1000;
+  const mi=(d*343*0.000621371).toFixed(2);
+  document.getElementById('c-delay').textContent=d.toFixed(1)+'s';
+  document.getElementById('c-dist').textContent=mi+' mi';
+  document.getElementById('live-timer').textContent=d.toFixed(1)+'s';
+  btn.classList.remove('armed');
+  document.getElementById('thunder-sub').textContent='press Flash first';
+  btn.style.boxShadow='0 0 30px rgba(48,200,224,.5)';
+  setTimeout(()=>btn.style.boxShadow='',400);
+  flashTime=null;
+}
+</script>
+</body>
+</html>
