@@ -1,7 +1,7 @@
 # Strikemap — Implementation Notes
 *Running log of decisions, gotchas, and things to remember across sessions*
 
-**Timeline:** idea originated c. 2007; design sketched ~April 2026; Sessions 1–3 built early May 2026 (confirmed via git history); Session 4 onward in July 2026. See PLAN.md for full timeline.
+**Timeline:** idea originated c. 2007; design sketched ~April 2026; Sessions 1–5 built early May 2026 (confirmed via git history) — project reached final form same month; retroactive documentation captured July 2026. See PLAN.md for full timeline.
 
 ---
 
@@ -16,7 +16,7 @@ Standard OSM tiles are light/colorful and fight the dark UI badly. CartoDB Dark 
 Leaflet measures its container on init. If the map `<div>` is hidden (display:none) when the page loads, Leaflet thinks it's 0×0. Calling `map.invalidateSize()` in `showScreen('map')` forces it to re-measure and re-render. Without this, you get a gray or broken map on first tab switch. Already wired — don't remove it.
 
 ### `tap: false` in Leaflet options
-Leaflet's built-in tap handler interferes with mobile touch on locked maps. Disabling it explicitly prevents phantom clicks and scroll jank. Already set.
+Leaflet's built-in tap handler interferes with mobile touch on locked maps. Disabling it explicitly prevents phantom clicks and scroll jank. Already set. Note: the desktop version intentionally does NOT disable `tap`, `dragging`, or `scrollWheelZoom`.
 
 ### Fallback coordinates
 James Island / Charleston, SC: `32.7357, -79.9956`. This is where the original mockup map screenshot was centered. Change to wherever makes sense after deploy if desired.
@@ -59,7 +59,7 @@ Three places where null bearing appears:
 3. **Map strip DIRECTION**: shows "—" when closest strike has null bearing — correct, not a bug
 
 ### Trend uses newest-first array order
-Strikes are stored newest-first (`arr.unshift()`). Trend comparison is `strikes[0].distMi - strikes[1].distMi` — negative means getting closer. Don't sort the array on read; insertion order is the sort.
+Strikes are stored newest-first (`array.unshift()`). Trend comparison is `strikes[0].distMi - strikes[1].distMi` — negative means getting closer. Don't sort the array on read; insertion order is the sort.
 
 ### HEARD THUNDER must be inert until FLASH is tapped
 The THUNDER button should do nothing if `flashTime` is null. The `armed` class is only added by the FLASH handler, not present in HTML at load. Verified in Session 4 — HTML has no `armed` class on the button.
@@ -95,7 +95,7 @@ Described in handoff but not in HTML. Added `#distant-notice` div inside `.map-w
 ## Session 4 — Three Tabs + Couch Mode
 
 ### Three-tab restructure is the biggest layout change
-Split the original two-panel RECORD layout into RECORD (controls only) + TRENDS (log + chart). The two-column mockup layout is preserved for a future desktop version — don't try to merge them in the same responsive CSS.
+Split the original two-panel RECORD layout into RECORD (controls only) + TRENDS (log + chart). The two-column mockup layout is used in the desktop version — don't try to merge them in the same responsive CSS.
 
 ### `showScreen()` wiring
 - `showScreen('map')` → calls `map.invalidateSize()` then `renderMapStrikes()`
@@ -106,7 +106,7 @@ Split the original two-panel RECORD layout into RECORD (controls only) + TRENDS 
 The localStorage schema always supported `bear: null`. Couch mode is just an intentional route to that state. The log, map, and trend code treat null bearing the same regardless of whether it came from couch mode or a missed compass lock.
 
 ### Couch mode does not persist across reload
-`couchMode` is a JS runtime variable — resets to `false` on reload. Intentional for now; if needed, persist to localStorage in a future session.
+`couchMode` is a JS runtime variable — resets to `false` on reload (mobile). Desktop starts with `couchMode = true` — also resets on reload. Neither persists. Intentional for now.
 
 ### Map strip DIRECTION shows `—` for null-bearing closest strike
 If the closest active strike has `card: null` (couch mode or no compass lock), DIRECTION shows `—`. This is correct behavior — the app doesn't know direction. May surprise users who expect to always see something there.
@@ -115,7 +115,7 @@ If the closest active strike has `card: null` (couch mode or no compass lock), D
 At one point during Session 4 there were two `DOMContentLoaded` blocks (init in one, age filter listeners in the other). Merged into one. Keep it that way — splitting them causes initialization order confusion.
 
 ### `setInterval(renderLog, 30000)` is unconditional
-Runs regardless of which tab is active. `renderLog()` is a no-op if the TRENDS elements aren't visible (it guards with `if(!logEl) return`). This is intentional — timestamps need to age even when the user is on the RECORD or MAP tab. Session 5 task: extend this interval to also call `renderMapStrikes()` and `updateObsBadge()`.
+Runs regardless of which tab is active. `renderLog()` is a no-op if the TRENDS elements aren't visible (it guards with `if(!logEl) return`). This is intentional — timestamps need to age even when the user is on the RECORD or MAP tab. Extended in Session 5 to also call `renderMapStrikes()` and `updateObsBadge()`.
 
 ---
 
@@ -151,6 +151,77 @@ Was embedded as a hardcoded `5` inside `makePizzaCrust()` in Session 3. Promoted
 
 ### Map legend updated to reflect current values
 Legend text now reads: `WEDGE = ±10° BEARING ERROR`, `ARC DEPTH = ±500ms TIMING`, `DONUT = NO BEARING (COUCH)`. Keep this in sync if constants change.
+
+---
+
+## Session 5 — Live Refresh + Desktop + Icon
+
+### Live age refresh — extend the interval, don't add a new one
+The existing unconditional `setInterval(renderLog, 30000)` was extended to a single callback that calls all three: `renderLog()`, `updateObsBadge()`, and `renderMapStrikes()`. Don't add separate intervals for each — one tick, three updates, keeps them in sync.
+
+```javascript
+setInterval(() => {
+  renderLog();
+  updateObsBadge();
+  if (window.sm_map) renderMapStrikes();
+}, 30000);
+```
+
+The `if(window.sm_map)` guard is important — `renderMapStrikes()` references the Leaflet instance, which won't exist if something went wrong during map init.
+
+### Trend bar floor — why 20% and not 0%
+Without a floor, a storm that starts at 5mi and drops to 0.5mi would show the latest bar at 10% height — a barely-visible sliver. The 20% floor keeps the chart useful for showing trend direction even when absolute distances compress. The relative proportions are still visible above the floor; only the very shortest bars get bumped up.
+
+`TREND_BAR_MIN_PCT = 20` is a tunable constant. Higher values make the chart look more "equal height" (more like a colour timeline, less like a bar chart). Lower values preserve more proportional accuracy. 20% felt right.
+
+### Timer variable renamed `timerInterval`
+The `setInterval` handle for the flash-to-thunder countdown was inconsistently named `timerTick` in earlier sessions. Renamed to `timerInterval` to match `clearInterval(timerInterval)` usage. Pure cosmetic/consistency fix.
+
+### Desktop version — separate file, not a breakpoint
+The desktop version is `strikemap-desktop.html`, not a responsive breakpoint in the same file. Reason: the layouts are fundamentally different (two-column vs single-column, interactive map vs locked map, couch mode default vs compass default). Trying to handle both in one file with CSS breakpoints would require too many overrides and would risk breaking mobile behaviour when tweaking desktop.
+
+### Desktop map — interactive by design
+Mobile map is intentionally locked (no drag/zoom) — fingers need to tap buttons, not accidentally pan the map. Desktop map is intentionally unlocked — a mouse doesn't accidentally pan, and zooming in on a specific area is genuinely useful on a larger screen. Key diff in Leaflet init:
+```javascript
+// mobile
+dragging:false, touchZoom:false, scrollWheelZoom:false, doubleClickZoom:false, tap:false
+
+// desktop
+dragging:true, touchZoom:true, scrollWheelZoom:true, doubleClickZoom:true
+// tap not set (default true) — fine on desktop
+```
+
+### Desktop couch mode — IIFE applies initial state before first paint
+`couchMode = true` sets the runtime variable. An IIFE immediately after `toggleCouchMode`'s definition applies the visual state (adds `.active` class, hides compass section, shows status label) before `DOMContentLoaded`. Without this, the UI would flash in the wrong state for one frame on load.
+
+```javascript
+(function(){
+  document.getElementById('couch-btn').classList.add('active');
+  document.getElementById('compass-section').style.display = 'none';
+  document.getElementById('couch-status-label').style.display = 'block';
+})();
+```
+
+Don't call `toggleCouchMode()` from the IIFE — that would toggle from `false` to `true`, which works, but couples the IIFE to the function's internal logic. Directly setting DOM state is more explicit.
+
+### Desktop location — silent geolocation on load, no prompt shown
+Desktop geolocation attempt on load uses `enableHighAccuracy: false` (faster, less battery) and `maximumAge: 300000` (5min cache acceptable). If it succeeds, location is set silently. If it fails, nothing is shown — the geo-status overlay says "SET LOCATION IN ← LOCATION TAB" as a soft prompt, not an error.
+
+This differs from mobile, where geolocation failure shows a 3-second "LOCATION UNAVAILABLE" message. On desktop the expectation is that the user will set location via the LOCATION tab anyway (IP geolocation is too imprecise for useful storm tracking).
+
+### Nominatim geocoder — usage rules
+Nominatim (OpenStreetMap's geocoding service) is free but has a usage policy: max 1 request/second, must include a valid `User-Agent` or `Accept-Language` header, no bulk geocoding. The implementation sends `Accept-Language: en` and is triggered by explicit user action (button press or Enter key) — not on every keystroke. This is well within acceptable use. If the project ever scales, switch to a self-hosted Nominatim instance or a paid geocoder.
+
+### Desktop and mobile share the same localStorage key
+Both files use `LS_KEY = 'sm_strikes'` and the same strike schema. If you have both open in the same browser on the same origin, they share data — strikes recorded in one appear in the other on next render tick. This is a useful feature (record on mobile, watch on desktop), not an accident.
+
+### Icon — SVG works as favicon in modern browsers
+`<link rel="icon" href="strikemap-icon.svg">` works in Chrome, Firefox, Safari 12+. For older browsers, a separate `.ico` file would be needed, but for a personal tool shared with a few people this isn't worth the effort.
+
+`<link rel="apple-touch-icon" href="strikemap-icon-180.png">` is the iOS home screen icon. iOS ignores SVG for this — must be PNG. 180×180 is the correct size for current iPhones (retina). Rendered with cairosvg: `cairosvg.svg2png(url='strikemap-icon.svg', write_to='strikemap-icon-180.png', output_width=180, output_height=180)`.
+
+### Icon geometry — bolt is slightly left of center
+The lightning bolt tip lands near the bull at ~(268, 380) in 512×512 space, not exactly at (256, 256). The bolt shape is a classic two-segment jagged polygon — it looks more natural slightly off-center. The bullseye rings are centered at (256, 256). The slight offset adds visual tension (the bolt is "striking" rather than just "passing through").
 
 ---
 
@@ -201,3 +272,6 @@ Strikes are never hard-deleted from localStorage on load. Expiry logic is applie
 
 ### `renderLog()` guards with `if(!logEl) return`
 The TRENDS tab elements don't exist in the DOM when RECORD or MAP is active. `renderLog()` checks for the element before proceeding, so the 30s interval can fire unconditionally without crashing.
+
+### `if(window.sm_map)` guard in the interval callback
+`renderMapStrikes()` uses the Leaflet `map` instance. The 30s interval fires unconditionally, including before the map might be fully initialized in edge cases. The guard prevents a crash if something went wrong during Leaflet init. Same pattern used in the clear-all handler and per-entry delete.

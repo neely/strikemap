@@ -7,8 +7,8 @@
 
 - **c. 2007** — Original concept: point at a flash, tap at thunder, get distance and bearing. No means to build it at the time.
 - **~April 2026** — Idea revisited and sketched out in design conversation form (UI mockup, geometry approach).
-- **Early May 2026** — Sessions 1–3 built: real map, compass + recording loop, corrected uncertainty geometry (pizza crust). Confirmed via git history (2026-05-08).
-- **July 2026** — Repo split out from the `apps` monorepo into its own project; Sessions 4 and 4b (three-tab layout, couch mode, compass UX rework, soft expiry) complete; Session 5 (field test + deploy) in progress.
+- **Early May 2026** — Sessions 1–5 built: real map, compass + recording loop, corrected uncertainty geometry (pizza crust), three-tab layout with couch mode, compass UX rework, live refresh, desktop companion app, and app icon. `strikemap.html` and `strikemap-desktop.html` reached final form. Confirmed via git history (2026-05-08).
+- **July 2026** — Repo split out from the `apps` monorepo into its own project; retroactive plan/notes documentation captured across this and the preceding sessions.
 
 ---
 
@@ -31,8 +31,10 @@ Blitzortung.org was identified as the best free community option for real strike
 ### No Google Maps, no Mapbox
 Both require API keys. Keys in client-side code on a public GitHub repo is bad practice, and adding referrer restrictions is friction for a personal tool shared with a few people. OpenStreetMap + Leaflet is genuinely free, no key, CDN-loaded, and works everywhere. Easy call.
 
-### Static map — no pinch to zoom
+### Static map — no pinch to zoom (mobile)
 Pinch-to-zoom gets out of whack quickly on a phone, then you need a recenter button, and the UX complexity grows. The whole point of the map is spatial awareness of storm progression, not navigation. A locked static view at zoom 12 (~10–12 mile wide area) is cleaner and more useful. One RE-CENTER button in the controls strip is the only escape hatch.
+
+The **desktop version** (`strikemap-desktop.html`) enables full drag + scroll-wheel zoom since a mouse-driven map is natural and doesn't suffer the same UX problems. Manual `+ ZOOM` / `− ZOOM` buttons in the toolbar supplement the scroll wheel.
 
 ### Zoom level 12 as default
 This shows roughly a 10–12 mile wide area, which means ~5–6 mile radius from center. This aligns almost exactly with the 30-second thunder delay rule (30s × 343 m/s ≈ 6.3 miles). Strikes beyond that get logged with a DISTANT flag but aren't plotted — the map view doesn't need to stretch for them.
@@ -91,18 +93,28 @@ The original two-panel RECORD layout (compass + log side by side) is too cramped
 - TRENDS: trend chart + full log with delete controls
 - MAP: map only
 
-The mockup's two-column layout is preserved for a planned desktop version (separate file, separate session).
+The mockup's two-column layout is used in the desktop version (separate file, completed Session 5).
 
 ### Couch mode
 For recording distance-only from inside (no line of sight to flash). Toggle on RECORD screen disables compass entirely — no permission request, no lock UI, `bear` saves as `null`. On the map, null-bearing strikes render as an **annular donut** at `distMi` radius (not a filled circle — same timing uncertainty band as the pizza crust, just swept 360°, dashed stroke, reduced fill opacity). No bearing line. Communicates "definitely this far away, direction unknown."
+
+Couch mode is **on by default in the desktop version** — desktop machines have no compass. The toggle still exists if a user wants to disable it (e.g. on a tablet with a sensor).
 
 ### Clear / delete UX
 - **CLEAR ALL** lives on TRENDS tab — confirm dialog required, then wipes localStorage
 - **Per-entry ✕** on each log row — no confirm needed for a single strike, just delete by `ts`
 - No CLEAR on MAP tab — data management lives in one place
 
-### Single HTML file
-No build step, no npm, no bundler. Leaflet from CDN, fonts from Google Fonts CDN, everything else vanilla JS. Drop the file in a GitHub repo, enable Pages, done.
+### Single HTML file (per version)
+No build step, no npm, no bundler. Leaflet from CDN, fonts from Google Fonts CDN, everything else vanilla JS. Drop files in a GitHub repo, enable Pages, done. Two files:
+- `index.html` (renamed from `strikemap.html`) — mobile version, primary
+- `strikemap-desktop.html` — desktop version
+
+### Trend bar height floor
+`TREND_BAR_MIN_PCT = 20`. When a storm approaches very close, the newest bars (short distance = short bar in a descending storm) would get crushed tiny relative to earlier distant strikes. The 20% floor keeps all bars legible while preserving relative proportions above that threshold.
+
+### App icon
+SVG master at 512×512 (`strikemap-icon.svg`): vertical lightning bolt (yellow with white-hot core, glow filter) striking the center of a bullseye on a black background. Bullseye rings use app palette colors — outermost blue-grey, then orange, two yellow, red bull. Faint crosshair lines add targeting feel. Also rendered as 180×180 PNG (`strikemap-icon-180.png`) for Apple touch icon.
 
 ---
 
@@ -134,29 +146,29 @@ No build step, no npm, no bundler. Leaflet from CDN, fonts from Google Fonts CDN
 - Rotating bezel compass — bezel rotates opposite to heading, N always faces north
 - Fixed yellow lubber line at 12 o'clock marks phone's forward direction
 - Compass ring is a `<button>` — tap to lock heading (green "✓ NNE"), tap again to unlock
-- `bearingArmed` flag: compass only accepts lock taps after FLASH is pressed
-- FLASH: starts timer, sets `bearingArmed = true`, compass goes live
-- THUNDER: captures locked bearing (or null), computes delay + distance, writes to localStorage, renders log
-- Bearing captured at top of `onThunder()` before state is cleared
-- `bear: null` handled gracefully — logs as "--- NO HDG", skipped on map
-- Trend bar chart from up to 8 most recent strikes, colored by age
-- Approaching / receding / steady indicator from last two strikes
-- CLEAR button with `confirm()` dialog, wipes localStorage
-- Timestamps refresh every 30s via `setInterval`
+- SAW FLASH → starts 100ms timer interval, arms THUNDER button, sets `bearingArmed = true`
+- HEARD THUNDER → reads `lockedHeading` first, then clears state, calculates distance, saves strike
+- Strike saved as `{ ts, delay, distMi, bear, card }` to localStorage newest-first
+- Calc box updates live during flash-to-thunder interval
 
 ---
 
-### Session 3 — Pizza Crusts + Map Fixes ✅ COMPLETE
-**Goal:** Correct uncertainty geometry on map; fix initialization bugs and map wiring.
+### Session 3 — Pizza Crusts + Map Strike Rendering ✅ COMPLETE
+**Goal:** Strikes plotted as correct uncertainty regions on the live map.
 
 **Completed:**
-- Replaced ellipse geometry with correct annular sector ("pizza crust") — `makePizzaCrust()` projects points directly from observer via `strikeLatLon()`, no cartesian ellipse math
-- Timing error revised to ±500ms (was ±250ms) — more realistic for human tap reaction
-- Age filter buttons fixed — now use `data-age` attributes; CENTER button no longer accidentally affected
-- APPROACHING alert — removed hardcoded `display:flex` from HTML; starts hidden, JS-controlled
-- DISTANT notice banner — `#distant-notice` element, CSS, and `updateMapStrip()` wiring
-- `fetchExternalStrikes()` stub added — async, returns `[]`, ready for Blitzortung hook
-- Map legend present as absolute overlay
+- `strikeLatLon()` — great-circle projection from observer to strike given bearing + distance
+- `makePizzaCrust()` — annular sector polygon (16-step outer arc + 16-step inner arc)
+- Center dot (`L.circleMarker`) + faint dashed bearing line at each strike
+- Distance label on most recent strike (quadrant offset to avoid overlapping the dot)
+- `clearStrikeLayers()` + `strikeLayers[]` array — full redraw on each render call
+- Age filter buttons (ALL / 10 MIN / 30 MIN) — `data-age` attribute, active state toggle
+- DISTANT notice banner for strikes beyond `MAX_DIST_MI`
+- APPROACHING alert — starts hidden, shown when active trend is negative
+- Map strip: OBS, CLOSEST, DIRECTION, TREND — all driven by `updateMapStrip()`
+- Fixed ellipse geometry bug (ellipses were wrong shape and wrong origin)
+- Fixed age filter toggle bug (was matching CENTER button text)
+- Fixed APPROACHING alert visibility (was hardcoded visible in HTML)
 
 ---
 
@@ -198,72 +210,104 @@ No build step, no npm, no bundler. Leaflet from CDN, fonts from Google Fonts CDN
 - Single `DOMContentLoaded` block — init, clear-all listener, age filter listeners unified
 - Map legend text updated to reflect ±10° and donut
 
-**Current constants in file:**
+---
+
+### Session 5 — Live Refresh + Desktop + Icon ✅ COMPLETE
+**Goal:** Age colors stay live without user interaction; desktop companion app; app icon.
+
+**Completed:**
+
+**Mobile (`strikemap.html` → rename to `index.html`):**
+- Live age color refresh: 30s interval now calls `renderMapStrikes()` and `updateObsBadge()` in addition to `renderLog()` — age colors on map, OBS badge, and map strip all update without user interaction
+- Trend bar height floor: `TREND_BAR_MIN_PCT = 20` constant — bars never shorter than 20% even when close strikes are tiny relative to earlier distant ones
+- Timer interval variable renamed `timerInterval` (was inconsistently named `timerTick`)
+
+**Desktop (`strikemap-desktop.html`):**
+- Two-column layout: 340px left panel (tabbed RECORD / TRENDS / LOCATION) + full-height interactive map
+- Couch mode on by default (`couchMode = true` at declaration); compass section hidden; IIFE applies visual state before first paint
+- Map is fully interactive: drag, scroll-wheel zoom, keyboard; manual `+ ZOOM` / `− ZOOM` buttons in toolbar
+- LOCATION tab with three entry methods:
+  - **Address search** via Nominatim geocoder (OSM, no API key) — up to 4 clickable results, selecting jumps to RECORD tab
+  - **Manual lat/lon** — two number fields + SET button with validation and OK ✓ / ERR flash feedback
+  - **Use Device Location** button — explicit user gesture, calls `getCurrentPosition()`
+- Silent background geolocation attempt on page load (no prompt or error if it fails — user sets via LOCATION tab)
+- `geo-status` overlay reads "SET LOCATION IN ← LOCATION TAB" on desktop instead of "ACQUIRING…"
+- All constants, geometry, strike schema, and localStorage key identical to mobile — same `sm_strikes` key, data shared if both open in same browser
+
+**Icon:**
+- `strikemap-icon.svg` — 512×512 SVG master: vertical lightning bolt (yellow + white-hot core, glow filter) striking bullseye center; rings use app palette (blue-grey outermost → orange → yellow → yellow → red bull); faint crosshair lines; warm radial glow on black background; rounded-square crop via `border-radius:22%`
+- `strikemap-icon-180.png` — 180×180 PNG rendered via cairosvg for Apple touch icon
+
+**Current constants (both files):**
 ```javascript
-const SOUND_MPS         = 343;    // m/s speed of sound
-const MI_PER_M          = 0.000621371;
-const MAX_DIST_MI       = 6.2;    // beyond this → DISTANT, not plotted
-const BEARING_ERROR_DEG = 10;     // ±° compass/pointing error — tune after field testing
-const TIMING_ERROR_S    = 0.5;    // ±s human reaction time on FLASH and THUNDER taps
-const EXPIRE_MIN        = 60;     // minutes before a strike goes soft-expired
-const LS_KEY            = 'sm_strikes';
+const SOUND_MPS          = 343;
+const MI_PER_M           = 0.000621371;
+const MAX_DIST_MI        = 6.2;
+const BEARING_ERROR_DEG  = 10;
+const TIMING_ERROR_S     = 0.5;
+const EXPIRE_MIN         = 60;
+const TREND_BAR_MIN_PCT  = 20;
+const LS_KEY             = 'sm_strikes';
 ```
 
 ---
 
-### Session 5 — Live Refresh + Field Test + Deploy ← START HERE
-**Goal:** Everything live-updating; deployed to real HTTPS URL; field-tested on phone.
+## Deploy Checklist
 
-**Tasks:**
+```
+strikemap.html          → rename to index.html
+strikemap-desktop.html  → keep filename
+strikemap-icon.svg      → repo root
+strikemap-icon-180.png  → repo root
 
-1. **Live age color refresh** (one task, two lines)
-   - The 30s `setInterval(renderLog, 30000)` already refreshes TRENDS log
-   - Extend it to also call `renderMapStrikes()` and `updateObsBadge()`
-   - Age colors, OBS badge, and map strip will then update without user interaction
+In <head> of both HTML files:
+  <link rel="icon" href="strikemap-icon.svg">
+  <link rel="apple-touch-icon" href="strikemap-icon-180.png">
+  <meta name="theme-color" content="#080c10">
 
-2. **Deploy to GitHub Pages**
-   - Rename `strikemap.html` → `index.html`
-   - Push to GitHub repo with Pages enabled (Settings → Pages → Deploy from branch → main → / root)
-   - Wait ~60s, open `https://yourusername.github.io/reponame/`
+GitHub: Settings → Pages → Deploy from branch → main → / root
+Wait ~60s → https://yourusername.github.io/reponame/
+```
 
-3. **iOS field test checklist** (requires HTTPS)
-   - [ ] Location prompt appears on open
-   - [ ] Compass shows `TAP TO START` with cyan glow; no compass prompt yet
-   - [ ] Tap compass ring → permission dialog appears
-   - [ ] After permission: bezel rotates live, degrees update
-   - [ ] Tap SAW FLASH → thunder button arms orange; compass turns yellow
-   - [ ] Tap compass ring → locks green `✓ NNE`
-   - [ ] Tap HEARD THUNDER → strike saved; TRENDS log shows it; MAP plots pizza crust
-   - [ ] Couch mode: compass hidden; HEARD THUNDER saves `bear: null`; MAP shows donut ring
-   - [ ] To test expiry: temporarily set `EXPIRE_MIN = 1`, wait 1 min, verify map clears, log shows `EXPIRED`, OBS badge drops
+---
 
-4. **Android test**
-   - Chrome Android: `deviceorientation` fires without dialog — bezel should go live immediately on first tap
-   - Firefox Android: may need `about:config` → `device.sensors.enabled` = true
+## Field Test Checklist (requires HTTPS)
 
-5. **Tune constants** based on field observations
-   - `BEARING_ERROR_DEG`: compare logged bearings against known landmarks; ±10° is a guess
-   - `TIMING_ERROR_S`: if reaction time feels fast/slow, adjust; ±500ms is conservative
+**iOS (priority):**
+- [ ] Location prompt appears on open
+- [ ] Compass shows `TAP TO START` with cyan glow — no compass prompt yet
+- [ ] Tap compass ring → iOS permission dialog
+- [ ] After permission: bezel rotates live, degrees update
+- [ ] Tap SAW FLASH → thunder button arms orange; compass turns yellow
+- [ ] Tap compass ring → locks green `✓ NNE`
+- [ ] Tap HEARD THUNDER → strike saved; TRENDS log shows it; MAP plots pizza crust
+- [ ] Wait 30s without touching — map colors and OBS badge update on their own
+- [ ] Couch mode: compass hidden; HEARD THUNDER saves `bear: null`; MAP shows donut ring
+- [ ] Expiry test: set `EXPIRE_MIN = 1`, wait, verify map clears + `EXPIRED` tag + badge drops
 
-**Known rough edges to address if time allows:**
-- Trend bar scale: if oldest strike is 6mi and newest is 1.4mi, recent bar is tiny. Consider minimum bar height floor (e.g. 20%).
-- Map label clipping: quadrant offset heuristic may still clip northerly strikes on narrow phones.
-- Couch mode doesn't persist across reload — resets to off. Acceptable for now.
-- Map strip DIRECTION shows `—` when closest strike has null bearing — correct, not a bug, but may surprise users.
+**Android:**
+- [ ] Chrome: `deviceorientation` fires without dialog — bezel live on first tap
+- [ ] Firefox: may need `about:config` → `device.sensors.enabled` = true
 
-**Deliverable:** Shareable HTTPS URL, works on any phone in a real storm.
+**Desktop:**
+- [ ] Map drag + scroll-wheel zoom works
+- [ ] LOCATION tab: address search returns results, selecting one centers map
+- [ ] LOCATION tab: manual lat/lon SET validates and re-centers
+- [ ] Couch mode on by default
+- [ ] Strikes recorded on mobile appear on desktop if same browser / same `sm_strikes` key
 
 ---
 
 ## Tunable Constants (top of script block)
 
 ```javascript
-const SOUND_MPS         = 343;    // m/s speed of sound
-const MI_PER_M          = 0.000621371;
-const MAX_DIST_MI       = 6.2;    // beyond this → DISTANT, not plotted
-const BEARING_ERROR_DEG = 10;     // ±° pointing error — tune after field testing
-const TIMING_ERROR_S    = 0.5;    // ±s human tap reaction time
-const EXPIRE_MIN        = 60;     // minutes before soft-expiry
+const SOUND_MPS          = 343;    // m/s speed of sound
+const MI_PER_M           = 0.000621371;
+const MAX_DIST_MI        = 6.2;    // beyond this → DISTANT, not plotted
+const BEARING_ERROR_DEG  = 10;     // ±° pointing error — tune after field testing
+const TIMING_ERROR_S     = 0.5;    // ±s human tap reaction time
+const EXPIRE_MIN         = 60;     // minutes before soft-expiry
+const TREND_BAR_MIN_PCT  = 20;     // minimum bar height % in trend chart
 // Age thresholds: hardcoded in ageClass() — <5min recent, <15min mid, else old
 ```
 
@@ -272,10 +316,10 @@ const EXPIRE_MIN        = 60;     // minutes before soft-expiry
 ## After v1 — Possible Future Work
 
 - **Blitzortung overlay**: wire `fetchExternalStrikes()`, show confirmed strikes as distinct markers for comparison with your observations. Good calibration tool.
-- **Desktop layout**: two-column view (controls left, log/trend right) — the original mockup design. Couch mode on by default since no device compass. Manual lat/lon entry since IP geolocation is imprecise on desktop (e.g. for tracking storms from work).
+- **Bearing-error tuning**: ±10° is a field estimate. After testing, compare logged bearings against known landmarks or Blitzortung data and adjust the constant.
 - **Multiple observers**: if two people at known locations both record the same strike, triangulation becomes possible. Out of scope for now.
 - **Tile variants**: CartoDB Positron (light) or standard OSM if dark tiles feel wrong in daylight use.
-- **Bearing-error tuning**: ±10° is a field estimate. After testing, compare logged bearings against known strike locations (if Blitzortung data is available) and adjust the constant.
+- **Couch mode persistence**: currently resets to off on reload (mobile). Could persist to localStorage with a single flag if desired.
 
 ---
 
@@ -285,6 +329,9 @@ const EXPIRE_MIN        = 60;     // minutes before soft-expiry
 |---|---|
 | `PLAN.md` | This document |
 | `NOTES.md` | Implementation decisions and gotchas discovered during development |
-| `STRIKEMAP_HANDOFF.md` | Full geometry, schema, and session-by-session task reference |
+| `STRIKEMAP_HANDOFF.md` | Full geometry, schema, and session-by-session reference |
 | `strikemap-mockup.html` | Full UI mockup — visual reference only, do not edit |
-| `strikemap.html` | **Live file — source of truth** |
+| `strikemap.html` | **Mobile live file — rename to `index.html` for deploy** |
+| `strikemap-desktop.html` | **Desktop live file** |
+| `strikemap-icon.svg` | App icon master (512×512 SVG) |
+| `strikemap-icon-180.png` | Apple touch icon (180×180 PNG) |
