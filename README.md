@@ -22,6 +22,33 @@ Two versions live at the same domain:
 
 Both write to the same `localStorage` key, so if you have them open in the same browser, strikes recorded on one show up on the other.
 
+## Screenshots
+
+### Recording a strike
+
+<table>
+<tr>
+<td><img src="img/screenshot-record-locked.jpg" width="260" alt="Compass locked, waiting for thunder"></td>
+<td><img src="img/screenshot-record-logged.jpg" width="260" alt="Strike logged, ready for next"></td>
+</tr>
+<tr>
+<td width="260">Tap <b>SAW FLASH</b>, point at the flash, tap the compass ring to lock the bearing (green ✓). <b>HEARD THUNDER</b> arms and glows orange while it waits.</td>
+<td width="260">Tap <b>HEARD THUNDER</b> and the strike is calculated and logged — OBS count increments, ready for the next one. <b>Couch mode</b> (toggle above SAW FLASH) skips the compass entirely for distance-only recording from inside.</td>
+</tr>
+</table>
+
+### Trends & log
+
+<img src="img/screenshot-trends.jpg" width="300" alt="Trend chart and strike log">
+
+Every strike is logged with delay, distance, and bearing, color-coded by age (yellow → orange → blue-grey as it gets older). Tap ✕ to delete a single strike, or CLEAR ALL to wipe the session. The trend indicator shows whether the storm is approaching or receding based on the most recent strikes.
+
+### Map
+
+<img src="img/screenshot-map.png" width="300" alt="Strikes plotted on the map as pizza-crust wedges">
+
+Each strike plots as a pizza-crust wedge — the uncertainty region from bearing and timing error — color-coded the same as the log. Couch-mode strikes (no bearing) show as a dashed donut ring instead of a wedge, since only distance is known.
+
 ## The idea
 
 The concept dates back to around 2007 — point at lightning, tap at thunder, get a distance — but there wasn't a practical way to build it at the time. It got picked back up and properly designed in early 2026, then built out over a series of focused sessions in May 2026. See [`PLAN.md`](PLAN.md) for the full design rationale and [`NOTES.md`](NOTES.md) for session-by-session implementation notes and gotchas — both are a genuinely detailed record if you want to see how the geometry evolved.
