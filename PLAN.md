@@ -315,7 +315,7 @@ const TREND_BAR_MIN_PCT  = 20;     // minimum bar height % in trend chart
 
 ## After v1 — Possible Future Work
 
-- **Blitzortung overlay**: wire `fetchExternalStrikes()`, show confirmed strikes as distinct markers for comparison with your observations. Good calibration tool.
+- **External lightning data overlay**: wire `fetchExternalStrikes()`, show network-detected strikes as distinct markers for comparison with your observations. Good calibration tool for `BEARING_ERROR_DEG`. Planned in detail in [`PLAN-EXTERNAL-DATA.md`](PLAN-EXTERNAL-DATA.md) — note that Blitzortung was found to be unreachable directly from a browser (tested August 2026), so this requires a proxy; Xweather is the selected first source.
 - **Bearing-error tuning**: ±10° is a field estimate. After testing, compare logged bearings against known landmarks or Blitzortung data and adjust the constant.
 - **Multiple observers**: if two people at known locations both record the same strike, triangulation becomes possible. Out of scope for now.
 - **Tile variants**: CartoDB Positron (light) or standard OSM if dark tiles feel wrong in daylight use.
@@ -328,6 +328,7 @@ const TREND_BAR_MIN_PCT  = 20;     // minimum bar height % in trend chart
 | File | Description |
 |---|---|
 | `PLAN.md` | This document |
+| `PLAN-EXTERNAL-DATA.md` | Phased plan for adding real network lightning data (planning only, not implemented) |
 | `NOTES.md` | Implementation decisions and gotchas discovered during development |
 | `README.md` | Project overview, live URLs, geometry explanation |
 | `strikemap-mockup.html` | Original UI mockup — historical artifact, not the live app |

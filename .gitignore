@@ -1,0 +1,10 @@
+# Cloudflare Worker (see PLAN-EXTERNAL-DATA.md) — added ahead of Phase 1
+# so credentials can never be accidentally committed.
+worker/node_modules/
+worker/.wrangler/
+.dev.vars
+.dev.vars.*
+
+# OS noise
+.DS_Store
+Thumbs.db
